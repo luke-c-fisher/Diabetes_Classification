@@ -398,7 +398,7 @@ testRoc = roc(diabetesTst$Diabetes ~ testProb, plot = TRUE, print.auc = TRUE)
 ## Setting direction: controls < cases
 ```
 
-![](Data_Analysis-unnamed-chunk-9-1.png)<!-- -->
+![](Plots/Data_Analysis-unnamed-chunk-9-1.png)<!-- -->
 
 ```r
 as.numeric(testRoc$auc)
