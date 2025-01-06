@@ -9,7 +9,7 @@ output:
 
 ```{r setup, include=TRUE, echo=FALSE}
 knitr::opts_chunk$set(
-  fig.path = "Data_Analysis-"
+  fig.path = "/Plots/Data_Analysis-"
 )
 ```
 
