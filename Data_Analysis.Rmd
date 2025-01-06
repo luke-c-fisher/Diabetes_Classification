@@ -1,5 +1,5 @@
 ---
-title: "Data_Analysis.rmd"
+title: "Data Analysis"
 author: "Luke Fisher"
 date: "2025-01-06"
 output: 
@@ -7,27 +7,29 @@ output:
     keep_md: true
 ---
 
-```{r setup, include=FALSE}
+```{r setup, echo=FALSE}
 knitr::opts_chunk$set(
   fig.path = "README-"
 )
 ```
 
-```{R}
+
+```{r}
 library(dplyr)
 library(ggplot2)
 library(ISLR)
 library(tibble)
 library(caret)
 library(tidyr)
+library(skimr)
 ```
 
 ## Load in data 
-```{R}
-diabetesData <- read.csv('/Users/lukefisher/Desktop/Coding/repos/Health Analytics/Diabetes/Diabetes_Indicators_Binary.csv')
+```{r}
+diabetesData <- read.csv('/Users/lukefisher/Desktop/Coding/repos/Health_Analytics/Data/Diabetes_Indicators_Binary.csv')
 ```
 
-## View data 
+## Data Wrangling
 ```{r}
 diabetesData <- diabetesData %>% 
 rename(Diabetes = Diabetes_binary) %>%
@@ -54,11 +56,10 @@ mod2 <- glm(Diabetes ~ HighBP + Smoker, data = diabetesTrn, family = "binomial")
 mod3 <- glm(Diabetes ~ HighBP + Smoker + Stroke, data = diabetesTrn, family = "binomial")
 mod4 <- glm(Diabetes ~ HighBP + Smoker + Stroke + BMI, data = diabetesTrn, family = "binomial")
 mod5 <- glm(Diabetes ~ HighBP + Smoker + Stroke + BMI + PhysActivity + PhysHlth, data = diabetesTrn, family = "binomial")
-
 ```
 
 ## Create eight total confusion matrices, 
-## four by applying your models to the training data, and four by applying your models to the test data. 
+## four by applying your models to the training data, and four by applying your models to the test data. Use a Bayes Classifier. 
 ## Briefly discuss your findings. How does the error rate, sensitivity, and specificity change as the number of predictors increases?
 ```{r}
 # Use lapply to predict on train and test data
@@ -87,71 +88,173 @@ confTrn1 <- confusionMatrix(trnTables[[1]], response = "yes")
 confTrn2 <- confusionMatrix(trnTables[[2]], response = "yes")
 confTrn3 <- confusionMatrix(trnTables[[3]], response = "yes")
 confTrn4 <- confusionMatrix(trnTables[[4]], response = "yes")
+confTrn5 <- confusionMatrix(trnTables[[5]], response = "yes")
 
 confTst1 <- confusionMatrix(tstTables[[1]], response = "yes")
 confTst2 <- confusionMatrix(tstTables[[2]], response = "yes")
 confTst3 <- confusionMatrix(tstTables[[3]], response = "yes")
 confTst4 <- confusionMatrix(tstTables[[4]], response = "yes")
+confTst5 <- confusionMatrix(tstTables[[5]], response = "yes")
+
 ```
 
 # Create a combined matrix of the confusion matrices 
 ```{r}
-# Train Data
+# Train
 trnMatrx1 <- data.frame( 
-            Model = "Train Model 1",
-            Accuracy = confTrn1$overall['Accuracy'],
-            Sensitivity = confTrn1$byClass['Sensitivity'],
-            Specificity = confTrn1$byClass['Specificity'])
-trnMatrx2 <- data.frame( 
-            Model = "Train Model 2",
-            Accuracy = confTrn2$overall['Accuracy'],
-            Sensitivity = confTrn2$byClass['Sensitivity'],
-            Specificity = confTrn2$byClass['Specificity'])
-trnMatrx3 <- data.frame( 
-            Model = "Train Model 3",
-            Accuracy = confTrn3$overall['Accuracy'],
-            Sensitivity = confTrn3$byClass['Sensitivity'],
-            Specificity = confTrn3$byClass['Specificity'])
-trnMatrx4 <- data.frame(
-            Model = "Train Model 4",
-            Accuracy = confTrn4$overall['Accuracy'],
-            Sensitivity = confTrn4$byClass['Sensitivity'],
-            Specificity = confTrn4$byClass['Specificity'])
+  Model = "Train Model 1",
+  Accuracy = confTrn1$overall['Accuracy'],
+  Sensitivity = confTrn1$byClass['Sensitivity'],
+  Specificity = confTrn1$byClass['Specificity'])
 
-# Test Data
+trnMatrx2 <- data.frame( 
+  Model = "Train Model 2",
+  Accuracy = confTrn2$overall['Accuracy'],
+  Sensitivity = confTrn2$byClass['Sensitivity'],
+  Specificity = confTrn2$byClass['Specificity'])
+            
+trnMatrx3 <- data.frame( 
+  Model = "Train Model 3",
+  Accuracy = confTrn3$overall['Accuracy'],
+  Sensitivity = confTrn3$byClass['Sensitivity'],
+  Specificity = confTrn3$byClass['Specificity'])
+
+trnMatrx4 <- data.frame(
+  Model = "Train Model 4",
+  Accuracy = confTrn4$overall['Accuracy'],
+  Sensitivity = confTrn4$byClass['Sensitivity'],
+  Specificity = confTrn4$byClass['Specificity'])
+
+trnMatrx5 <- data.frame(
+  Model = "Train Model 5",
+  Accuracy = confTrn5$overall['Accuracy'],
+  Sensitivity = confTrn5$byClass['Sensitivity'],
+  Specificity = confTrn5$byClass['Specificity'])
+
+
+# Test
 tstMatrx1 <- data.frame(
-            Model = "Test Model 1",
-            Accuracy = confTst1$overall['Accuracy'],
-            Sensitivity = confTst1$byClass['Sensitivity'],
-            Specificity = confTst1$byClass['Specificity'])
+  Model = "Test Model 1",
+  Accuracy = confTst1$overall['Accuracy'],
+  Sensitivity = confTst1$byClass['Sensitivity'],
+  Specificity = confTst1$byClass['Specificity'])
 
 tstMatrx2 <- data.frame(
-            Model = "Test Model 2",
-            Accuracy = confTst2$overall['Accuracy'],
-            Sensitivity = confTst2$byClass['Sensitivity'],
-            Specificity = confTst2$byClass['Specificity'])
+  Model = "Test Model 2",
+  Accuracy = confTst2$overall['Accuracy'],
+  Sensitivity = confTst2$byClass['Sensitivity'],
+  Specificity = confTst2$byClass['Specificity'])
         
 tstMatrx3 <- data.frame(
-            Model = "Test Model 3",
-            Accuracy = confTst3$overall['Accuracy'],
-            Sensitivity = confTst3$byClass['Sensitivity'],
-            Specificity = confTst3$byClass['Specificity'])
+  Model = "Test Model 3",
+  Accuracy = confTst3$overall['Accuracy'],
+  Sensitivity = confTst3$byClass['Sensitivity'],
+  Specificity = confTst3$byClass['Specificity'])
 
 tstMatrx4 <- data.frame(
-            Model = "Test Model 4",
-            Accuracy = confTst4$overall['Accuracy'],
-            Sensitivity = confTst4$byClass['Sensitivity'],
-            Specificity = confTst4$byClass['Specificity'])
+  Model = "Test Model 4",
+  Accuracy = confTst4$overall['Accuracy'],
+  Sensitivity = confTst4$byClass['Sensitivity'],
+  Specificity = confTst4$byClass['Specificity'])
 
-combinedTrnMatrx <- rbind(trnMatrx1, trnMatrx2, trnMatrx3, trnMatrx4)
-combinedTstMatrx <- rbind(tstMatrx1, tstMatrx2, tstMatrx3, tstMatrx4)
+tstMatrx5 <- data.frame(
+  Model = "Train Model 5",
+  Accuracy = confTst5$overall['Accuracy'],
+  Sensitivity = confTst5$byClass['Sensitivity'],
+  Specificity = confTst5$byClass['Specificity'])
+
+combinedTrnMatrx <- rbind(trnMatrx1, trnMatrx2, trnMatrx3, trnMatrx4, trnMatrx5)
+combinedTstMatrx <- rbind(tstMatrx1, tstMatrx2, tstMatrx3, tstMatrx4, tstMatrx5)
 
 print(combinedTrnMatrx)
 print(combinedTstMatrx)
 ```
 
-As the number of predictors increase, 
-accuracy and sensitivity grow while specificity falls. 
+Without adjusting the cutoff, we see accuracy and sensitivity grow while specificity falls 
+as the number of predictors increase. 
 This occurs as more confounding variables are accounted for with more predictors, lessening the amount of error in the regression. 
 Sensitivity grows for this same reason. Specificity decreases due to the risk of overfitting. 
 This occurs when the model starts to capture noise instead of an underlying pattern, reducing the model's ability to detect true negatives. 
+
+## Use multiple cutoffs in a model including all predictors and report the results 
+
+```{r}
+get_logistic_pred = function(mod, data, res = "y", pos = 1, neg = 0, cut = 0.5) {
+  probs = predict(mod, newdata = data, type = "response")
+  ifelse(probs > cut, pos, neg)
+}
+
+# Creating separate predictions based on different cutoffs
+
+lrgModel = glm(Diabetes ~ ., data = diabetesTrn, family = "binomial")
+
+testPred_01 = get_logistic_pred(lrgModel, diabetesTst, res = "Diabetes", 
+pos = "yes", neg = "no", cut = 0.1)
+
+testPred_02 = get_logistic_pred(lrgModel, diabetesTst, res = "Diabetes", 
+pos = "yes", neg = "no", cut = 0.33)
+
+testPred_03 = get_logistic_pred(lrgModel, diabetesTst, res = "Diabetes", 
+pos = "yes", neg = "no", cut = 0.5)
+
+testPred_04 = get_logistic_pred(lrgModel, diabetesTst, res = "Diabetes", 
+pos = "yes", neg = "no", cut = 0.66)
+
+testPred_05 = get_logistic_pred(lrgModel, diabetesTst, res = "Diabetes", 
+pos = "yes", neg = "no", cut = 0.9)
+
+# Evaluate Accuaracy, Sensitivity, and Specificity for each cutoff
+testTab_01 <- table(predicted = testPred_01, actual = diabetesTst$Diabetes)
+testTab_02 <- table(predicted = testPred_02, actual = diabetesTst$Diabetes)
+testTab_03 <- table(predicted = testPred_03, actual = diabetesTst$Diabetes)
+testTab_04 <- table(predicted = testPred_04, actual = diabetesTst$Diabetes)
+testTab_05 <- table(predicted = testPred_05, actual = diabetesTst$Diabetes)
+
+testMatrx_01 <- confusionMatrix(testTab_01, positive = "yes")
+testMatrx_02 <- confusionMatrix(testTab_02, positive = "yes")
+testMatrx_03 <- confusionMatrix(testTab_03, positive = "yes")
+testMatrx_04 <- confusionMatrix(testTab_04, positive = "yes")
+testMatrx_05 <- confusionMatrix(testTab_05, positive = "yes")
+
+metrics <- rbind(
+  c(testMatrx_01$overall["Accuracy"],
+    testMatrx_01$byClass["Sensitivity"],
+    testMatrx_01$byClass["Specificity"]),
+
+  c(testMatrx_02$overall["Accuracy"],
+    testMatrx_02$byClass["Sensitivity"],
+    testMatrx_02$byClass["Specificity"]),
+
+  c(testMatrx_03$overall["Accuracy"],
+    testMatrx_03$byClass["Sensitivity"],
+    testMatrx_03$byClass["Specificity"]),
+    
+  c(testMatrx_04$overall["Accuracy"],
+    testMatrx_04$byClass["Sensitivity"],
+    testMatrx_04$byClass["Specificity"]),
+
+  c(testMatrx_05$overall["Accuracy"],
+    testMatrx_05$byClass["Sensitivity"],
+    testMatrx_05$byClass["Specificity"])
+)
+
+rownames(metrics) = c("c = 0.10", "c = 0.33", "c = 0.50", "c = 0.66", "c = 0.90")
+metrics
+```
+
+## Visualize the data above using an ROC curve. 
+
+```{r}
+library(pROC)
+testProb = predict(lrgModel, newdata = diabetesTst, type = "response")
+testRoc = roc(diabetesTst$Diabetes ~ testProb, plot = TRUE, print.auc = TRUE)
+
+as.numeric(testRoc$auc)
+
+```
+
+The following ROC curve automizes the above process by accounting for Sensitivity and Specificity 
+at each cutoff. The optimal point on the ROC curve has a cutoff of 0.5, 
+where the sensitivity is roughly 0.76. This follows the idea that the peak of the ROC curve
+is the optimal balance between Sensitivity and Specificity. The implication
+is that a 0.5 cutoff does the best job at capturing the most true positives and negatives in the confusion matrix. 
