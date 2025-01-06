@@ -8,25 +8,150 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(
+  fig.path = "README-"
+)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{R}
+library(dplyr)
+library(ggplot2)
+library(ISLR)
+library(tibble)
+library(caret)
+library(tidyr)
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+## Load in data 
+```{R}
+diabetesData <- read.csv('/Users/lukefisher/Desktop/Coding/repos/Health Analytics/Diabetes/Diabetes_Indicators_Binary.csv')
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## View data 
+```{r}
+diabetesData <- diabetesData %>% 
+rename(Diabetes = Diabetes_binary) %>%
+mutate(Diabetes = factor(Diabetes, levels = c(0, 1), labels = c("no", "yes")))
+
+str(diabetesData)
+```
+
+## Split the data into an 80/20 train vs. test split. Set the seed for replicability.
+```{r}
+set.seed(44222)
+
+diabetesIdx = sample((nrow(diabetesData)), size = 0.8 * nrow(diabetesData))
+diabetesTrn = diabetesData[diabetesIdx, ]
+diabetesTst = diabetesData[-diabetesIdx, ]
+
+head(diabetesTrn, n = 10)
+```
+
+## Run a series of logistic regressions
+```{r}
+mod1 <- glm(Diabetes ~ HighBP, data = diabetesTrn, family = "binomial")
+mod2 <- glm(Diabetes ~ HighBP + Smoker, data = diabetesTrn, family = "binomial")
+mod3 <- glm(Diabetes ~ HighBP + Smoker + Stroke, data = diabetesTrn, family = "binomial")
+mod4 <- glm(Diabetes ~ HighBP + Smoker + Stroke + BMI, data = diabetesTrn, family = "binomial")
+mod5 <- glm(Diabetes ~ HighBP + Smoker + Stroke + BMI + PhysActivity + PhysHlth, data = diabetesTrn, family = "binomial")
+
+```
+
+## Create eight total confusion matrices, 
+## four by applying your models to the training data, and four by applying your models to the test data. 
+## Briefly discuss your findings. How does the error rate, sensitivity, and specificity change as the number of predictors increases?
+```{r}
+# Use lapply to predict on train and test data
+
+modelList <- list (mod1, mod2, mod3, mod4, mod5)
+
+trnPred <- lapply(modelList, function(mod){
+    ifelse(predict(mod, newdata = diabetesTrn, type = "response") > 0.5, "yes", "no")
+})
+
+tstPred <- lapply(modelList, function(mod){
+    ifelse(predict(mod, newdata = diabetesTst, type = "response") > 0.5, "yes", "no")
+})
+
+# Create tables to get the actual vs predicted values 
+trnTables <- lapply(trnPred, function(pred){
+    table(predicted = pred, actual = diabetesTrn$Diabetes)
+})
+
+tstTables <- lapply(tstPred, function(pred){
+    table(predicted = pred, actual = diabetesTst$Diabetes)
+})
+
+# Use predictions to develop eight confusion matrices, four for the train data and four for the test data
+confTrn1 <- confusionMatrix(trnTables[[1]], response = "yes")
+confTrn2 <- confusionMatrix(trnTables[[2]], response = "yes")
+confTrn3 <- confusionMatrix(trnTables[[3]], response = "yes")
+confTrn4 <- confusionMatrix(trnTables[[4]], response = "yes")
+
+confTst1 <- confusionMatrix(tstTables[[1]], response = "yes")
+confTst2 <- confusionMatrix(tstTables[[2]], response = "yes")
+confTst3 <- confusionMatrix(tstTables[[3]], response = "yes")
+confTst4 <- confusionMatrix(tstTables[[4]], response = "yes")
+```
+
+# Create a combined matrix of the confusion matrices 
+```{r}
+# Train Data
+trnMatrx1 <- data.frame( 
+            Model = "Train Model 1",
+            Accuracy = confTrn1$overall['Accuracy'],
+            Sensitivity = confTrn1$byClass['Sensitivity'],
+            Specificity = confTrn1$byClass['Specificity'])
+trnMatrx2 <- data.frame( 
+            Model = "Train Model 2",
+            Accuracy = confTrn2$overall['Accuracy'],
+            Sensitivity = confTrn2$byClass['Sensitivity'],
+            Specificity = confTrn2$byClass['Specificity'])
+trnMatrx3 <- data.frame( 
+            Model = "Train Model 3",
+            Accuracy = confTrn3$overall['Accuracy'],
+            Sensitivity = confTrn3$byClass['Sensitivity'],
+            Specificity = confTrn3$byClass['Specificity'])
+trnMatrx4 <- data.frame(
+            Model = "Train Model 4",
+            Accuracy = confTrn4$overall['Accuracy'],
+            Sensitivity = confTrn4$byClass['Sensitivity'],
+            Specificity = confTrn4$byClass['Specificity'])
+
+# Test Data
+tstMatrx1 <- data.frame(
+            Model = "Test Model 1",
+            Accuracy = confTst1$overall['Accuracy'],
+            Sensitivity = confTst1$byClass['Sensitivity'],
+            Specificity = confTst1$byClass['Specificity'])
+
+tstMatrx2 <- data.frame(
+            Model = "Test Model 2",
+            Accuracy = confTst2$overall['Accuracy'],
+            Sensitivity = confTst2$byClass['Sensitivity'],
+            Specificity = confTst2$byClass['Specificity'])
+        
+tstMatrx3 <- data.frame(
+            Model = "Test Model 3",
+            Accuracy = confTst3$overall['Accuracy'],
+            Sensitivity = confTst3$byClass['Sensitivity'],
+            Specificity = confTst3$byClass['Specificity'])
+
+tstMatrx4 <- data.frame(
+            Model = "Test Model 4",
+            Accuracy = confTst4$overall['Accuracy'],
+            Sensitivity = confTst4$byClass['Sensitivity'],
+            Specificity = confTst4$byClass['Specificity'])
+
+combinedTrnMatrx <- rbind(trnMatrx1, trnMatrx2, trnMatrx3, trnMatrx4)
+combinedTstMatrx <- rbind(tstMatrx1, tstMatrx2, tstMatrx3, tstMatrx4)
+
+print(combinedTrnMatrx)
+print(combinedTstMatrx)
+```
+
+As the number of predictors increase, 
+accuracy and sensitivity grow while specificity falls. 
+This occurs as more confounding variables are accounted for with more predictors, lessening the amount of error in the regression. 
+Sensitivity grows for this same reason. Specificity decreases due to the risk of overfitting. 
+This occurs when the model starts to capture noise instead of an underlying pattern, reducing the model's ability to detect true negatives. 
