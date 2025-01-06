@@ -7,29 +7,55 @@ output:
     keep_md: true
 ---
 
-```{r setup, include=TRUE, echo=FALSE}
-knitr::opts_chunk$set(
-  fig.path = "Data_Analysis-"
-)
+
+
+
+```r
+library(dplyr)
 ```
 
-```{r}
-library(dplyr)
+```
+## 
+## Attaching package: 'dplyr'
+```
+
+```
+## The following objects are masked from 'package:stats':
+## 
+##     filter, lag
+```
+
+```
+## The following objects are masked from 'package:base':
+## 
+##     intersect, setdiff, setequal, union
+```
+
+```r
 library(ggplot2)
 library(ISLR)
 library(tibble)
 library(caret)
+```
+
+```
+## Loading required package: lattice
+```
+
+```r
 library(tidyr)
 library(skimr)
 ```
 
 ## Load in data 
-```{r}
+
+```r
 diabetesData <- read.csv('/Users/lukefisher/Desktop/Coding/repos/Health_Analytics/Data/Diabetes_Indicators_Binary.csv')
 ```
 
 ## Data Wrangling
-```{r}
+
+```r
 diabetesData <- diabetesData %>% 
 rename(Diabetes = Diabetes_binary) %>%
 mutate(Diabetes = factor(Diabetes, levels = c(0, 1), labels = c("no", "yes")))
@@ -37,8 +63,35 @@ mutate(Diabetes = factor(Diabetes, levels = c(0, 1), labels = c("no", "yes")))
 str(diabetesData)
 ```
 
+```
+## 'data.frame':	70692 obs. of  22 variables:
+##  $ Diabetes            : Factor w/ 2 levels "no","yes": 1 1 1 1 1 1 1 1 1 1 ...
+##  $ HighBP              : num  1 1 0 1 0 0 0 0 0 0 ...
+##  $ HighChol            : num  0 1 0 1 0 0 1 0 0 0 ...
+##  $ CholCheck           : num  1 1 1 1 1 1 1 1 1 1 ...
+##  $ BMI                 : num  26 26 26 28 29 18 26 31 32 27 ...
+##  $ Smoker              : num  0 1 0 1 1 0 1 1 0 1 ...
+##  $ Stroke              : num  0 1 0 0 0 0 0 0 0 0 ...
+##  $ HeartDiseaseorAttack: num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ PhysActivity        : num  1 0 1 1 1 1 1 0 1 0 ...
+##  $ Fruits              : num  0 1 1 1 1 1 1 1 1 1 ...
+##  $ Veggies             : num  1 0 1 1 1 1 1 1 1 1 ...
+##  $ HvyAlcoholConsump   : num  0 0 0 0 0 0 1 0 0 0 ...
+##  $ AnyHealthcare       : num  1 1 1 1 1 0 1 1 1 1 ...
+##  $ NoDocbcCost         : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ GenHlth             : num  3 3 1 3 2 2 1 4 3 3 ...
+##  $ MentHlth            : num  5 0 0 0 0 7 0 0 0 0 ...
+##  $ PhysHlth            : num  30 0 10 3 0 0 0 0 0 6 ...
+##  $ DiffWalk            : num  0 0 0 0 0 0 0 0 0 0 ...
+##  $ Sex                 : num  1 1 1 1 0 0 1 1 0 1 ...
+##  $ Age                 : num  4 12 13 11 8 1 13 6 3 6 ...
+##  $ Education           : num  6 6 6 6 5 4 5 4 6 4 ...
+##  $ Income              : num  8 8 8 8 8 7 6 3 8 4 ...
+```
+
 ## Split the data into an 80/20 train vs. test split. Set the seed for replicability.
-```{r}
+
+```r
 set.seed(44222)
 
 diabetesIdx = sample((nrow(diabetesData)), size = 0.8 * nrow(diabetesData))
@@ -48,8 +101,45 @@ diabetesTst = diabetesData[-diabetesIdx, ]
 head(diabetesTrn, n = 10)
 ```
 
+```
+##       Diabetes HighBP HighChol CholCheck BMI Smoker Stroke HeartDiseaseorAttack
+## 36027      yes      0        0         1  32      0      0                    0
+## 32605       no      1        0         1  29      1      0                    1
+## 67519      yes      1        0         1  30      1      1                    0
+## 41322      yes      1        0         1  24      1      0                    0
+## 54098      yes      1        1         1  28      1      1                    1
+## 34711       no      0        0         1  26      1      0                    0
+## 27963       no      0        0         1  36      1      0                    0
+## 12132       no      0        0         1  28      1      0                    0
+## 11078       no      0        0         0  22      0      0                    0
+## 38966      yes      1        0         1  44      0      0                    0
+##       PhysActivity Fruits Veggies HvyAlcoholConsump AnyHealthcare NoDocbcCost
+## 36027            1      1       1                 0             1           0
+## 32605            1      0       1                 0             1           0
+## 67519            1      0       1                 0             1           0
+## 41322            1      1       1                 0             1           0
+## 54098            1      1       1                 0             1           0
+## 34711            1      1       1                 0             0           0
+## 27963            1      0       1                 0             1           0
+## 12132            1      1       1                 0             1           0
+## 11078            1      1       1                 0             0           1
+## 38966            1      1       1                 0             1           0
+##       GenHlth MentHlth PhysHlth DiffWalk Sex Age Education Income
+## 36027       3        0        0        0   1  11         5      7
+## 32605       5        0       28        1   1   9         4      6
+## 67519       5        0       30        1   1   8         6      7
+## 41322       2        0        0        0   1   9         4      3
+## 54098       4        0        0        0   0  13         5      6
+## 34711       3        0        0        0   0   3         4      3
+## 27963       3        0        2        0   1   6         5      8
+## 12132       2        0        0        1   0   8         5      4
+## 11078       1        0        0        0   1   6         4      3
+## 38966       3        2        1        1   0   8         3      3
+```
+
 ## Run a series of logistic regressions
-```{r}
+
+```r
 mod1 <- glm(Diabetes ~ HighBP, data = diabetesTrn, family = "binomial")
 mod2 <- glm(Diabetes ~ HighBP + Smoker, data = diabetesTrn, family = "binomial")
 mod3 <- glm(Diabetes ~ HighBP + Smoker + Stroke, data = diabetesTrn, family = "binomial")
@@ -60,7 +150,8 @@ mod5 <- glm(Diabetes ~ HighBP + Smoker + Stroke + BMI + PhysActivity + PhysHlth,
 ## Create eight total confusion matrices, 
 ## four by applying your models to the training data, and four by applying your models to the test data. Use a Bayes Classifier. 
 ## Briefly discuss your findings. How does the error rate, sensitivity, and specificity change as the number of predictors increases?
-```{r}
+
+```r
 # Use lapply to predict on train and test data
 
 modelList <- list (mod1, mod2, mod3, mod4, mod5)
@@ -94,11 +185,11 @@ confTst2 <- confusionMatrix(tstTables[[2]], response = "yes")
 confTst3 <- confusionMatrix(tstTables[[3]], response = "yes")
 confTst4 <- confusionMatrix(tstTables[[4]], response = "yes")
 confTst5 <- confusionMatrix(tstTables[[5]], response = "yes")
-
 ```
 
 # Create a combined matrix of the confusion matrices 
-```{r}
+
+```r
 # Train
 trnMatrx1 <- data.frame( 
   Model = "Train Model 1",
@@ -166,7 +257,28 @@ combinedTrnMatrx <- rbind(trnMatrx1, trnMatrx2, trnMatrx3, trnMatrx4, trnMatrx5)
 combinedTstMatrx <- rbind(tstMatrx1, tstMatrx2, tstMatrx3, tstMatrx4, tstMatrx5)
 
 print(combinedTrnMatrx)
+```
+
+```
+##                   Model  Accuracy Sensitivity Specificity
+## Accuracy  Train Model 1 0.6893180   0.6251859   0.7533119
+## Accuracy1 Train Model 2 0.6893180   0.6251859   0.7533119
+## Accuracy2 Train Model 3 0.6893180   0.6251859   0.7533119
+## Accuracy3 Train Model 4 0.6983184   0.6536147   0.7429258
+## Accuracy4 Train Model 5 0.7044896   0.6708561   0.7380507
+```
+
+```r
 print(combinedTstMatrx)
+```
+
+```
+##                   Model  Accuracy Sensitivity Specificity
+## Accuracy   Test Model 1 0.6888040   0.6280282   0.7501065
+## Accuracy1  Test Model 2 0.6888040   0.6280282   0.7501065
+## Accuracy2  Test Model 3 0.6888040   0.6280282   0.7501065
+## Accuracy3  Test Model 4 0.6979984   0.6553521   0.7410143
+## Accuracy4 Train Model 5 0.7063442   0.6752113   0.7377468
 ```
 
 Without adjusting the cutoff, we see accuracy and sensitivity grow while specificity falls 
@@ -177,7 +289,8 @@ This occurs when the model starts to capture noise instead of an underlying patt
 
 ## Use multiple cutoffs in a model including all predictors and report the results 
 
-```{r}
+
+```r
 get_logistic_pred = function(mod, data, res = "y", pos = 1, neg = 0, cut = 0.5) {
   probs = predict(mod, newdata = data, type = "response")
   ifelse(probs > cut, pos, neg)
@@ -241,15 +354,58 @@ rownames(metrics) = c("c = 0.10", "c = 0.33", "c = 0.50", "c = 0.66", "c = 0.90"
 metrics
 ```
 
+```
+##           Accuracy Sensitivity Specificity
+## c = 0.10 0.5932527   0.9930388   0.1969014
+## c = 0.33 0.7356249   0.9041057   0.5685915
+## c = 0.50 0.7483556   0.7675806   0.7292958
+## c = 0.66 0.7161044   0.5726666   0.8583099
+## c = 0.90 0.5513120   0.1128001   0.9860563
+```
+
 ## Visualize the data above using an ROC curve. 
 
-```{r}
+
+```r
 library(pROC)
+```
+
+```
+## Type 'citation("pROC")' for a citation.
+```
+
+```
+## 
+## Attaching package: 'pROC'
+```
+
+```
+## The following objects are masked from 'package:stats':
+## 
+##     cov, smooth, var
+```
+
+```r
 testProb = predict(lrgModel, newdata = diabetesTst, type = "response")
 testRoc = roc(diabetesTst$Diabetes ~ testProb, plot = TRUE, print.auc = TRUE)
+```
 
+```
+## Setting levels: control = no, case = yes
+```
+
+```
+## Setting direction: controls < cases
+```
+
+![](Data_Analysis-unnamed-chunk-9-1.png)<!-- -->
+
+```r
 as.numeric(testRoc$auc)
+```
 
+```
+## [1] 0.8275798
 ```
 
 The following ROC curve automizes the above process by accounting for Sensitivity and Specificity 
