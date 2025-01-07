@@ -3,8 +3,6 @@ title: "Data Analysis"
 author: "Luke Fisher"
 date: "2025-01-06"
 output: rmarkdown::github_document
-  # html_document:
-  #   keep_md: true
 ---
 
 ```{r setup, include=TRUE, echo=FALSE}
