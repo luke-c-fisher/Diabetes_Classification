@@ -1,11 +1,25 @@
 ---
-title: "Data Analysis"
+title: "Classifying Diabetes"
 author: "Luke Fisher"
-date: "2025-01-06"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: rmarkdown::github_document
 ---
 
-```{r setup, include=TRUE, echo=FALSE}
+## Introduction
+
+Diabetes is an chronic autoimmune disease affecting millions of Americans each year. It is best described as the body's inability to properly produce insulin, or produce any at all. This is a result of either an invalid or exhausted pancreas, whose job is to secrete enough insulin to manage blood-glucose levels. Normally, insulin is released to enable cells to absorb the blood-glucose to use for energy. In this way, it acts as a "key" between blood-glucose and cells. 
+
+For a diabetic, however, this "key" doesn't occur naturally, instead taking the form of insulin injections. As such, a diabetic uses a glucose monitor to regulate their blood sugar--whose excess or lack thereof has detrimental consequences. For this reason, it is important to know whether or not someone is diabetic. In this project, I will classify diabetes in subjects using predictive modeling.  
+
+## Data Collection
+
+The classification will be based on a Kaggle dataset derived from the CDCs Behavioral Risk Factor Surveillance System.
+
+## Methodology
+
+The classification will be denoted by binary logistic regression. As such, the response variable, diabetes, will take on two values, "yes" or "no", corresponding to whether the patient has the disease. The classification will start with a series of logistic models, each with increasing complexity. That is to say the number of predictors will increase. Afterwards, the models will be merged into a list where each iteration will be applied to a predictive function with a 0.5 cutoff. 
+
+```{r setup, echo=FALSE}
 knitr::opts_chunk$set(
   fig.path = "Plots/Data_Analysis-"
 )
@@ -55,9 +69,7 @@ mod4 <- glm(Diabetes ~ HighBP + Smoker + Stroke + BMI, data = diabetesTrn, famil
 mod5 <- glm(Diabetes ~ HighBP + Smoker + Stroke + BMI + PhysActivity + PhysHlth, data = diabetesTrn, family = "binomial")
 ```
 
-## Create eight total confusion matrices, 
-## four by applying your models to the training data, and four by applying your models to the test data. Use a Bayes Classifier. 
-## Briefly discuss your findings. How does the error rate, sensitivity, and specificity change as the number of predictors increases?
+## Create eight total confusion matrices. Compare the error rate, sensitivity, and specificity of each matrix. 
 ```{r}
 # Use lapply to predict on train and test data
 
@@ -95,7 +107,7 @@ confTst5 <- confusionMatrix(tstTables[[5]], response = "yes")
 
 ```
 
-# Create a combined matrix of the confusion matrices 
+## Create a combined matrix of the confusion matrices 
 ```{r}
 # Train
 trnMatrx1 <- data.frame( 
@@ -155,7 +167,7 @@ tstMatrx4 <- data.frame(
   Specificity = confTst4$byClass['Specificity'])
 
 tstMatrx5 <- data.frame(
-  Model = "Train Model 5",
+  Model = "Test Model 5",
   Accuracy = confTst5$overall['Accuracy'],
   Sensitivity = confTst5$byClass['Sensitivity'],
   Specificity = confTst5$byClass['Specificity'])
@@ -163,8 +175,8 @@ tstMatrx5 <- data.frame(
 combinedTrnMatrx <- rbind(trnMatrx1, trnMatrx2, trnMatrx3, trnMatrx4, trnMatrx5)
 combinedTstMatrx <- rbind(tstMatrx1, tstMatrx2, tstMatrx3, tstMatrx4, tstMatrx5)
 
-print(combinedTrnMatrx)
-print(combinedTstMatrx)
+print(as_tibble(combinedTrnMatrx))
+print(as_tibble(combinedTstMatrx))
 ```
 
 Without adjusting the cutoff, we see accuracy and sensitivity grow while specificity falls 
@@ -255,3 +267,5 @@ at each cutoff. The optimal point on the ROC curve has a cutoff of 0.5,
 where the sensitivity is roughly 0.76. This follows the idea that the peak of the ROC curve
 is the optimal balance between Sensitivity and Specificity. The implication
 is that a 0.5 cutoff does the best job at capturing the most true positives and negatives in the confusion matrix. 
+
+The ROC curve reaffirms the conclusion that 0.5 is the best cutoff for the logistic model. 

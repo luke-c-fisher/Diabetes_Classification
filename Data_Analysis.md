@@ -1,7 +1,39 @@
-Data Analysis
+Classifying Diabetes
 ================
 Luke Fisher
-2025-01-06
+09 January, 2025
+
+## Introduction
+
+Diabetes is an chronic autoimmune disease affecting millions of
+Americans each year. It is best described as the body’s inability to
+properly produce insulin, or produce any at all. This is a result of
+either an invalid or exhausted pancreas, whose job is to secrete enough
+insulin to manage blood-glucose levels. Normally, insulin is released to
+enable cells to absorb the blood-glucose to use for energy. In this way,
+it acts as a “key” between blood-glucose and cells.
+
+For a diabetic, however, this “key” doesn’t occur naturally, instead
+taking the form of insulin injections. As such, a diabetic uses a
+glucose monitor to regulate their blood sugar–whose excess or lack
+thereof has detrimental consequences. For this reason, it is important
+to know whether or not someone is diabetic. In this project, I will
+classify diabetes in subjects using predictive modeling.
+
+## Data Collection
+
+The classification will be based on a Kaggle dataset derived from the
+CDCs Behavioral Risk Factor Surveillance System.
+
+## Methodology
+
+The classification will be denoted by binary logistic regression. As
+such, the response variable, diabetes, will take on two values, “yes” or
+“no”, corresponding to whether the patient has the disease. The
+classification will start with a series of logistic models, each with
+increasing complexity. That is to say the number of predictors will
+increase. Afterwards, the models will be merged into a list where each
+iteration will be applied to a predictive function with a 0.5 cutoff.
 
 ``` r
 library(dplyr)
@@ -128,11 +160,7 @@ mod4 <- glm(Diabetes ~ HighBP + Smoker + Stroke + BMI, data = diabetesTrn, famil
 mod5 <- glm(Diabetes ~ HighBP + Smoker + Stroke + BMI + PhysActivity + PhysHlth, data = diabetesTrn, family = "binomial")
 ```
 
-## Create eight total confusion matrices,
-
-## four by applying your models to the training data, and four by applying your models to the test data. Use a Bayes Classifier.
-
-## Briefly discuss your findings. How does the error rate, sensitivity, and specificity change as the number of predictors increases?
+## Create eight total confusion matrices. Compare the error rate, sensitivity, and specificity of each matrix.
 
 ``` r
 # Use lapply to predict on train and test data
@@ -170,7 +198,7 @@ confTst4 <- confusionMatrix(tstTables[[4]], response = "yes")
 confTst5 <- confusionMatrix(tstTables[[5]], response = "yes")
 ```
 
-# Create a combined matrix of the confusion matrices
+## Create a combined matrix of the confusion matrices
 
 ``` r
 # Train
@@ -231,7 +259,7 @@ tstMatrx4 <- data.frame(
   Specificity = confTst4$byClass['Specificity'])
 
 tstMatrx5 <- data.frame(
-  Model = "Train Model 5",
+  Model = "Test Model 5",
   Accuracy = confTst5$overall['Accuracy'],
   Sensitivity = confTst5$byClass['Sensitivity'],
   Specificity = confTst5$byClass['Specificity'])
@@ -239,26 +267,30 @@ tstMatrx5 <- data.frame(
 combinedTrnMatrx <- rbind(trnMatrx1, trnMatrx2, trnMatrx3, trnMatrx4, trnMatrx5)
 combinedTstMatrx <- rbind(tstMatrx1, tstMatrx2, tstMatrx3, tstMatrx4, tstMatrx5)
 
-print(combinedTrnMatrx)
+print(as_tibble(combinedTrnMatrx))
 ```
 
-    ##                   Model  Accuracy Sensitivity Specificity
-    ## Accuracy  Train Model 1 0.6893180   0.6251859   0.7533119
-    ## Accuracy1 Train Model 2 0.6893180   0.6251859   0.7533119
-    ## Accuracy2 Train Model 3 0.6893180   0.6251859   0.7533119
-    ## Accuracy3 Train Model 4 0.6983184   0.6536147   0.7429258
-    ## Accuracy4 Train Model 5 0.7044896   0.6708561   0.7380507
+    ## # A tibble: 5 × 4
+    ##   Model         Accuracy Sensitivity Specificity
+    ##   <chr>            <dbl>       <dbl>       <dbl>
+    ## 1 Train Model 1    0.689       0.625       0.753
+    ## 2 Train Model 2    0.689       0.625       0.753
+    ## 3 Train Model 3    0.689       0.625       0.753
+    ## 4 Train Model 4    0.698       0.654       0.743
+    ## 5 Train Model 5    0.704       0.671       0.738
 
 ``` r
-print(combinedTstMatrx)
+print(as_tibble(combinedTstMatrx))
 ```
 
-    ##                   Model  Accuracy Sensitivity Specificity
-    ## Accuracy   Test Model 1 0.6888040   0.6280282   0.7501065
-    ## Accuracy1  Test Model 2 0.6888040   0.6280282   0.7501065
-    ## Accuracy2  Test Model 3 0.6888040   0.6280282   0.7501065
-    ## Accuracy3  Test Model 4 0.6979984   0.6553521   0.7410143
-    ## Accuracy4 Train Model 5 0.7063442   0.6752113   0.7377468
+    ## # A tibble: 5 × 4
+    ##   Model        Accuracy Sensitivity Specificity
+    ##   <chr>           <dbl>       <dbl>       <dbl>
+    ## 1 Test Model 1    0.689       0.628       0.750
+    ## 2 Test Model 2    0.689       0.628       0.750
+    ## 3 Test Model 3    0.689       0.628       0.750
+    ## 4 Test Model 4    0.698       0.655       0.741
+    ## 5 Test Model 5    0.706       0.675       0.738
 
 Without adjusting the cutoff, we see accuracy and sensitivity grow while
 specificity falls as the number of predictors increase. This occurs as
@@ -381,3 +413,6 @@ follows the idea that the peak of the ROC curve is the optimal balance
 between Sensitivity and Specificity. The implication is that a 0.5
 cutoff does the best job at capturing the most true positives and
 negatives in the confusion matrix.
+
+The ROC curve reaffirms the conclusion that 0.5 is the best cutoff for
+the logistic model.
