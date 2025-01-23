@@ -1,7 +1,7 @@
 Classifying Diabetes
 ================
 Luke Fisher
-09 January, 2025
+23 January, 2025
 
 ## Introduction
 
@@ -17,23 +17,38 @@ For a diabetic, however, this “key” doesn’t occur naturally, instead
 taking the form of insulin injections. As such, a diabetic uses a
 glucose monitor to regulate their blood sugar–whose excess or lack
 thereof has detrimental consequences. For this reason, it is important
-to know whether or not someone is diabetic. In this project, I will
-classify diabetes in subjects using predictive modeling.
+to know whether or not someone is diabetic. In this project, I will use
+classification to identify diabetes.
 
 ## Data Collection
 
 The classification will be based on a Kaggle dataset derived from the
-CDCs Behavioral Risk Factor Surveillance System.
+CDCs Behavioral Risk Factor Surveillance System (BRFSS). The data
+contains 70,692 responses from the 2015 BRFSS survey, each related to
+risk factors like smoking, high cholesterol, and physical activity.
+Furthermore, the data contains an equal 50-50 split of respondents with
+and without diabetes.
+
+The data is binary, meaning that the predictors take on a value one or
+zero depending on whether the condition is true or not. For instance, if
+a respondent has a smoking habit they will be marked with a 1 for the
+smoking column; otherwise, they will receive a 0. There are some
+exceptions to this like BMI and age, where the values are continuous.
 
 ## Methodology
 
-The classification will be denoted by binary logistic regression. As
-such, the response variable, diabetes, will take on two values, “yes” or
-“no”, corresponding to whether the patient has the disease. The
-classification will start with a series of logistic models, each with
-increasing complexity. That is to say the number of predictors will
-increase. Afterwards, the models will be merged into a list where each
-iteration will be applied to a predictive function with a 0.5 cutoff.
+The classification will be done by binary logistic regression. As such,
+the response variable, diabetes, will take on two values, “yes” or “no”,
+corresponding to whether the patient has the disease. The classification
+will start with a series of logistic models, each with increasing
+complexity. The models will be merged into a list where each of them
+will be applied to a predictive function with a 0.5 threshold. The
+function will label, respectively, “yes” and “no” for the values above
+and below 0.5. Afterwards, these predicted values will be compared with
+the actual values in a table and put into a confusion matrix for
+evaluation. The method above will repeat itself except with one large
+model with multiple cutoffs. The point of this is to ensure consistent
+results.
 
 ``` r
 library(dplyr)
@@ -104,9 +119,8 @@ str(diabetesData)
     ##  $ Education           : num  6 6 6 6 5 4 5 4 6 4 ...
     ##  $ Income              : num  8 8 8 8 8 7 6 3 8 4 ...
 
-## Split the data into an 80/20 train vs. test split. Set the seed for replicability.
-
 ``` r
+# Split the data into an 80/20 train vs. test split. Set the seed for replicability.
 set.seed(44222)
 
 diabetesIdx = sample((nrow(diabetesData)), size = 0.8 * nrow(diabetesData))
@@ -150,17 +164,15 @@ head(diabetesTrn, n = 10)
     ## 11078       1        0        0        0   1   6         4      3
     ## 38966       3        2        1        1   0   8         3      3
 
-## Run a series of logistic regressions
+## Logistical regression with one cutoff of 0.5
 
 ``` r
 mod1 <- glm(Diabetes ~ HighBP, data = diabetesTrn, family = "binomial")
-mod2 <- glm(Diabetes ~ HighBP + Smoker, data = diabetesTrn, family = "binomial")
-mod3 <- glm(Diabetes ~ HighBP + Smoker + Stroke, data = diabetesTrn, family = "binomial")
-mod4 <- glm(Diabetes ~ HighBP + Smoker + Stroke + BMI, data = diabetesTrn, family = "binomial")
+mod2 <- glm(Diabetes ~ HighBP + Smoker + I(HighBP * Smoker)^2, data = diabetesTrn, family = "binomial")
+mod3 <- glm(Diabetes ~ HighBP + Smoker + Stroke + I(Smoker * Stroke), data = diabetesTrn, family = "binomial")
+mod4 <- glm(Diabetes ~ HighBP + Smoker + Stroke + BMI + I(Stroke * BMI), data = diabetesTrn, family = "binomial")
 mod5 <- glm(Diabetes ~ HighBP + Smoker + Stroke + BMI + PhysActivity + PhysHlth, data = diabetesTrn, family = "binomial")
 ```
-
-## Create eight total confusion matrices. Compare the error rate, sensitivity, and specificity of each matrix.
 
 ``` r
 # Use lapply to predict on train and test data
@@ -184,7 +196,7 @@ tstTables <- lapply(tstPred, function(pred){
     table(predicted = pred, actual = diabetesTst$Diabetes)
 })
 
-# Use predictions to develop eight confusion matrices, four for the train data and four for the test data
+# Use predictions to develop ten confusion matrices, four for the train data and four for the test data
 confTrn1 <- confusionMatrix(trnTables[[1]], response = "yes")
 confTrn2 <- confusionMatrix(trnTables[[2]], response = "yes")
 confTrn3 <- confusionMatrix(trnTables[[3]], response = "yes")
@@ -197,8 +209,6 @@ confTst3 <- confusionMatrix(tstTables[[3]], response = "yes")
 confTst4 <- confusionMatrix(tstTables[[4]], response = "yes")
 confTst5 <- confusionMatrix(tstTables[[5]], response = "yes")
 ```
-
-## Create a combined matrix of the confusion matrices
 
 ``` r
 # Train
@@ -275,7 +285,7 @@ print(as_tibble(combinedTrnMatrx))
     ##   <chr>            <dbl>       <dbl>       <dbl>
     ## 1 Train Model 1    0.689       0.625       0.753
     ## 2 Train Model 2    0.689       0.625       0.753
-    ## 3 Train Model 3    0.689       0.625       0.753
+    ## 3 Train Model 3    0.690       0.621       0.759
     ## 4 Train Model 4    0.698       0.654       0.743
     ## 5 Train Model 5    0.704       0.671       0.738
 
@@ -288,9 +298,11 @@ print(as_tibble(combinedTstMatrx))
     ##   <chr>           <dbl>       <dbl>       <dbl>
     ## 1 Test Model 1    0.689       0.628       0.750
     ## 2 Test Model 2    0.689       0.628       0.750
-    ## 3 Test Model 3    0.689       0.628       0.750
+    ## 3 Test Model 3    0.690       0.625       0.755
     ## 4 Test Model 4    0.698       0.655       0.741
     ## 5 Test Model 5    0.706       0.675       0.738
+
+## Evaluation
 
 Without adjusting the cutoff, we see accuracy and sensitivity grow while
 specificity falls as the number of predictors increase. This occurs as
@@ -301,7 +313,7 @@ This occurs when the model starts to capture noise instead of an
 underlying pattern, reducing the model’s ability to detect true
 negatives.
 
-## Use multiple cutoffs in a model including all predictors and report the results
+## Regression with multiple cutoffs
 
 ``` r
 get_logistic_pred = function(mod, data, res = "y", pos = 1, neg = 0, cut = 0.5) {
@@ -374,8 +386,6 @@ metrics
     ## c = 0.66 0.7161044   0.5726666   0.8583099
     ## c = 0.90 0.5513120   0.1128001   0.9860563
 
-## Visualize the data above using an ROC curve.
-
 ``` r
 library(pROC)
 ```
@@ -406,6 +416,8 @@ as.numeric(testRoc$auc)
 
     ## [1] 0.8275798
 
+## Evaluate
+
 The following ROC curve automizes the above process by accounting for
 Sensitivity and Specificity at each cutoff. The optimal point on the ROC
 curve has a cutoff of 0.5, where the sensitivity is roughly 0.76. This
@@ -416,3 +428,5 @@ negatives in the confusion matrix.
 
 The ROC curve reaffirms the conclusion that 0.5 is the best cutoff for
 the logistic model.
+
+## Conclusion
