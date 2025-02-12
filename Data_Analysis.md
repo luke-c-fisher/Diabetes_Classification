@@ -1,7 +1,7 @@
 Classifying Diabetes
 ================
 Luke Fisher
-23 January, 2025
+03 February, 2025
 
 ## Introduction
 
@@ -418,15 +418,6 @@ as.numeric(testRoc$auc)
 
 ## Evaluate
 
-The following ROC curve automizes the above process by accounting for
-Sensitivity and Specificity at each cutoff. The optimal point on the ROC
-curve has a cutoff of 0.5, where the sensitivity is roughly 0.76. This
-follows the idea that the peak of the ROC curve is the optimal balance
-between Sensitivity and Specificity. The implication is that a 0.5
-cutoff does the best job at capturing the most true positives and
-negatives in the confusion matrix.
-
-The ROC curve reaffirms the conclusion that 0.5 is the best cutoff for
-the logistic model.
+The ROC curve above reaffirms the previous findings of a
 
 ## Conclusion

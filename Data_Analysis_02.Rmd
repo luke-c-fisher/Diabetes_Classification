@@ -1,5 +1,5 @@
 ---
-title: "Classifying Diabetes"
+title: "Classifying Diabetes Draft 2"
 author: "Luke Fisher"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: rmarkdown::github_document
@@ -61,8 +61,6 @@ diabetesTst = diabetesData[-diabetesIdx, ]
 
 head(diabetesTrn, n = 10)
 ```
-
-## Classification with multiple cutoffs
 
 ```{r}
 get_logistic_pred = function(mod, data, res = "y", pos = 1, neg = 0, cut = 0.5) {
@@ -134,12 +132,14 @@ metrics_tibble <- as_tibble(metrics, rownames = "Threshold")
 print(metrics_tibble)
 ```
 
+
 ```{r}
 library(pROC)
 testProb = predict(lrgModel, newdata = diabetesTst, type = "response")
 testRoc = roc(diabetesTst$Diabetes ~ testProb, plot = TRUE, print.auc = TRUE)
 
 ```
+
 ## Evaluate 
 
 **Address the tendency for the model to overfit**
@@ -149,150 +149,8 @@ The above model exhibits different levels of accuracy, sensitivity, and specific
 With that said, the model with the most balanced trade-off between Accuracy, Sensitivity, and Specificity is the model with a 0.5 cutoff. It differs from the other models in the sense that it doesn't skew toward one metric, making for a unbiased classifier. Furthermore, the ROC curve hugs the top-left around the 0.50 mark, where the model exhibits its highest true positive and negative rates. The overall performance of the model is 0.82, meaning that it has a solid ability to discriminate between diabetics and non-diabetics. 
 
 
-## Classification with a 0.5 cutoff
-
-```{r}
-head(diabetesTrn, n = 10)
-
-```
 
 
-```{r}
-mod1 <- glm(Diabetes ~ HighBP, data = diabetesTrn, family = "binomial")
-mod2 <- glm(Diabetes ~ HighBP + Smoker + I(HighBP * Smoker)^2, data = diabetesTrn, family = "binomial")
-mod3 <- glm(Diabetes ~ HighBP + Smoker + Stroke + BMI + PhysActivity + HvyAlcoholConsump, data = diabetesTrn, family = "binomial")
-mod4 <- glm(Diabetes ~ HighBP + Smoker + Stroke + BMI + I(Stroke * BMI) + PhysActivity^2 + Age + Education + Income^2, data = diabetesTrn, family = "binomial")
-mod5 <- glm(Diabetes ~ ., data = diabetesTrn, family = "binomial")
-```
-
-```{r}
-# Use lapply to predict on train and test data
-
-modelList <- list (mod1, mod2, mod3, mod4, mod5)
-
-trnPred <- lapply(modelList, function(mod){
-    ifelse(predict(mod, newdata = diabetesTrn, type = "response") > 0.5, "yes", "no")
-})
-
-tstPred <- lapply(modelList, function(mod){
-    ifelse(predict(mod, newdata = diabetesTst, type = "response") > 0.5, "yes", "no")
-})
-
-# Create tables to get the actual vs predicted values 
-trnTables <- lapply(trnPred, function(pred){
-    table(predicted = pred, actual = diabetesTrn$Diabetes)
-})
-
-tstTables <- lapply(tstPred, function(pred){
-    table(predicted = pred, actual = diabetesTst$Diabetes)
-})
-
-# Use predictions to develop ten confusion matrices, four for the train data and four for the test data
-confTrn1 <- confusionMatrix(trnTables[[1]], response = "yes")
-confTrn2 <- confusionMatrix(trnTables[[2]], response = "yes")
-confTrn3 <- confusionMatrix(trnTables[[3]], response = "yes")
-confTrn4 <- confusionMatrix(trnTables[[4]], response = "yes")
-confTrn5 <- confusionMatrix(trnTables[[5]], response = "yes")
-
-confTst1 <- confusionMatrix(tstTables[[1]], response = "yes")
-confTst2 <- confusionMatrix(tstTables[[2]], response = "yes")
-confTst3 <- confusionMatrix(tstTables[[3]], response = "yes")
-confTst4 <- confusionMatrix(tstTables[[4]], response = "yes")
-confTst5 <- confusionMatrix(tstTables[[5]], response = "yes")
-
-```
-
-```{r}
-# Train
-trnMatrx1 <- data.frame(
-  Model = "Train Model 1",
-  Accuracy = confTrn1$overall['Accuracy'],
-  Sensitivity = confTrn1$byClass['Sensitivity'],
-  Specificity = confTrn1$byClass['Specificity'])
-
-trnMatrx2 <- data.frame(
-  Model = "Train Model 2",
-  Accuracy = confTrn2$overall['Accuracy'],
-  Sensitivity = confTrn2$byClass['Sensitivity'],
-  Specificity = confTrn2$byClass['Specificity'])
-
-trnMatrx3 <- data.frame(
-  Model = "Train Model 3",
-  Accuracy = confTrn3$overall['Accuracy'],
-  Sensitivity = confTrn3$byClass['Sensitivity'],
-  Specificity = confTrn3$byClass['Specificity'])
-
-trnMatrx4 <- data.frame(
-  Model = "Train Model 4",
-  Accuracy = confTrn4$overall['Accuracy'],
-  Sensitivity = confTrn4$byClass['Sensitivity'],
-  Specificity = confTrn4$byClass['Specificity'])
-
-trnMatrx5 <- data.frame(
-  Model = "Train Model 5",
-  Accuracy = confTrn5$overall['Accuracy'],
-  Sensitivity = confTrn5$byClass['Sensitivity'],
-  Specificity = confTrn5$byClass['Specificity'])
-
-
-# Test
-tstMatrx1 <- data.frame(
-  Model = "Test Model 1",
-  Accuracy = confTst1$overall['Accuracy'],
-  Sensitivity = confTst1$byClass['Sensitivity'],
-  Specificity = confTst1$byClass['Specificity'])
-
-tstMatrx2 <- data.frame(
-  Model = "Test Model 2",
-  Accuracy = confTst2$overall['Accuracy'],
-  Sensitivity = confTst2$byClass['Sensitivity'],
-  Specificity = confTst2$byClass['Specificity'])
-        
-tstMatrx3 <- data.frame(
-  Model = "Test Model 3",
-  Accuracy = confTst3$overall['Accuracy'],
-  Sensitivity = confTst3$byClass['Sensitivity'],
-  Specificity = confTst3$byClass['Specificity'])
-
-tstMatrx4 <- data.frame(
-  Model = "Test Model 4",
-  Accuracy = confTst4$overall['Accuracy'],
-  Sensitivity = confTst4$byClass['Sensitivity'],
-  Specificity = confTst4$byClass['Specificity'])
-
-tstMatrx5 <- data.frame(
-  Model = "Test Model 5",
-  Accuracy = confTst5$overall['Accuracy'],
-  Sensitivity = confTst5$byClass['Sensitivity'],
-  Specificity = confTst5$byClass['Specificity'])
-
-combinedTrnMatrx <- rbind(trnMatrx1, trnMatrx2, trnMatrx3, trnMatrx4, trnMatrx5)
-combinedTstMatrx <- rbind(tstMatrx1, tstMatrx2, tstMatrx3, tstMatrx4, tstMatrx5)
-
-print(as_tibble(combinedTrnMatrx))
-print(as_tibble(combinedTstMatrx))
-```
-
-```{r}
-library(pROC)
-testProb1 = predict(mod3, newdata = diabetesTst, type = "response")
-testRoc1 = roc(diabetesTst$Diabetes ~ testProb1, plot = TRUE, print.auc = TRUE)
-
-as.numeric(testRoc1$auc)
-
-```
-
-
-## Evaluation
-
-
-The models above exhibit a relatively balanced trade-off between accuracy, sensitivity, and specificity. However, as the models increase in complexity, there is a notable increase in accuracy and sensitivity at the expense of specificity. This process is known as "overfitting", where the model is biased in a certain direction--in this case, positive--due to over-complexity. The increasing accuracy in the models illustrates this process. As the models increase in complexity, positive cases are identified at the expense of negative ones, leading the model to capture "noise" instead of an underlying pattern. 
-
-Hence, while Model 5 exhibits the highest accuracy, it runs the risk of over-fitting as evidenced by its faltering specificity. Model 3 is the best choice as it contains the best balance between accuracy, sensitivity, and specificity. Additionally, its AUC, or overall performance at all thresholds, is 0.70, indicating a good ability to discriminate between diabetics and non-diabetics. 
-
-## Conclusion
-
-The two methods above are two approaches in deriving a classifier.
 
 
 
