@@ -19,7 +19,7 @@ The data is binary, meaning that the predictors take on a value one or zero depe
 
 ## Methodology
 
-The classification will be done by binary logistic regression. As such, the response variable, diabetes, will take on two values, "yes" or "no", corresponding to whether the patient has the disease. The classification will start with a series of logistic models, each with increasing complexity. The models will be merged into a list where each of them will be applied to a predictive function with a 0.5 threshold. The function will label, respectively, "yes" and "no" for the values above and below 0.5. Afterwards, these predicted values will be compared with the actual values in a table and put into a confusion matrix for evaluation. The method above will repeat itself with one large model with multiple cutoffs. The point of this is to ensure consistent results. 
+The classification will be done by binary logistic regression. As such, the response variable, diabetes, will take on two values, "yes" or "no", corresponding to whether the patient has the disease. The classification will start with a series of logistic models, each with a unique cutoff. The function will label, respectively, "yes" and "no" for the values above and below 0.5. Afterwards, these predicted values will be compared with the actual values in a table and put into a confusion matrix for evaluation. The method above will repeat itself with one large model with multiple cutoffs. The point of this is to ensure consistent results. 
 
 ```{r setup, echo=FALSE}
 knitr::opts_chunk$set(
@@ -35,6 +35,7 @@ library(tibble)
 library(caret)
 library(tidyr)
 library(skimr)
+library(glmnet)
 ```
 
 ## Load in data 
@@ -51,6 +52,7 @@ mutate(Diabetes = factor(Diabetes, levels = c(0, 1), labels = c("no", "yes")))
 str(diabetesData)
 ```
 
+## Cross validation
 ```{r}
 # Split the data into an 80/20 train vs. test split. Set the seed for replicability.
 set.seed(44222)
@@ -67,6 +69,7 @@ get_logistic_pred = function(mod, data, res = "y", pos = 1, neg = 0, cut = 0.5) 
   probs = predict(mod, newdata = data, type = "response")
   ifelse(probs > cut, pos, neg)
 }
+
 
 # Creating separate predictions based on different cutoffs
 
@@ -129,24 +132,137 @@ rownames(metrics) = c("c = 0.10", "c = 0.33", "c = 0.50", "c = 0.66", "c = 0.90"
 
 metrics_tibble <- as_tibble(metrics, rownames = "Threshold")
 
-print(metrics_tibble)
+print(knitr::kable(metrics_tibble))
 ```
-
 
 ```{r}
 library(pROC)
 testProb = predict(lrgModel, newdata = diabetesTst, type = "response")
 testRoc = roc(diabetesTst$Diabetes ~ testProb, plot = TRUE, print.auc = TRUE)
 
+
 ```
+
+
+## Test errors
+
+```{r}
+# Test for error in the 0.5 prediction
+calcErr = function(actual, predicted) {
+  mean(actual != predicted)
+}
+
+calcErr(actual = diabetesTst$Diabetes, predicted = testPred_03)
+```
+
+The table above contains regression models with varying cutoffs. The model with a 0.5 cutoff appears to have the most balanced trade-off between Accuracy, Specificity, and Sensitivity, exhibiting characteristics of a valid classifier. Furthermore, the ideal values for Sensitivity and Specificity align with the values for the 0.5 model as seen the ROC curve. 
+
+Its error of 0.25, however, is too high of an error to be acceptable in diagnosing diabetes. Such an error could be the difference between an insulin-receiving diabetic or a hyperglycemic diabetic--the latter of which can face severe health consequences. 
+
+Therefore, we must alter the complexity of the previous 0.5 model to obtain an acceptable error value. It is also important that we eliminate the possibility of over-fitting, as this can occur with highly complex models like `lrgModel`. 
+
+To address this, we must compare the train and test errors of `testPred_03`. If the test errors are significantly higher than the train errors, we can conclude over-fitting. Otherwise, we can rule out over-fitting and work to reduce the error to an acceptable level. To do this, we must diagnose the cause of the error. 
+
+## Comparing test and train data to test over-fitting.
+
+```{r}
+trainPred_03 = get_logistic_pred(lrgModel, diabetesTrn, res = "Diabetes", 
+pos = "yes", neg = "no", cut = 0.5)
+
+# Predict on the training data
+trainErr_03 = calcErr(actual = diabetesTrn$Diabetes, predicted = trainPred_03)
+
+# Calculate test error (already done in your code)
+testErr_03 = calcErr(actual = diabetesTst$Diabetes, predicted = testPred_03)
+
+# Compare train and test errors
+errorComparison = tibble::tibble(
+  Type = c("Train Error", "Test Error"),
+  Error = c(trainErr_03, testErr_03)
+)
+
+print(knitr::kable(errorComparison))
+```
+
+**Test for class imbalance**
+
+```{r}
+classImblnce <- table(diabetesData$Diabetes)
+
+barplot(classImblnce, main = "Class Distribution", xlab = "Class", ylab = "Frequency")
+```
+We can rule out the possibility of a class imbalance. 
+
+## Use the LASSO on the diabetes data to get an acceptable error
+
+We must use a modified OLS regression--LASSO--to get a lower test error. Such a modified regression penalizes the coefficients using lambdas to reduce error. 
+
+
+```{r}
+set.seed(123)
+
+# Build new logistic model for LASSO in matrix form 
+predictors <- model.matrix(Diabetes ~ .^2 + PhysHlth^3 + GenHlth^4, data = diabetesData)[,-1]
+response <- diabetesData$Diabetes
+
+# Train-Test split
+trainIdx <- sample(seq_len(nrow(predictors)), size = 0.8 * nrow(predictors))
+predTrn <- predictors[trainIdx, ]
+respTrn <- response[trainIdx]
+
+predTst <- predictors[-trainIdx, ]
+respTst <- response[-trainIdx]
+
+# Fit LASSO model to obtain the best lambda. 
+# Keep in my that cross validation must occur for this to happen. 
+lassoMod = cv.glmnet(
+  x = predTrn,
+  y = respTrn,
+  alpha = 1,
+  family = "binomial")
+
+bestLambda <- lassoMod$lambda.min
+
+# Use model with best lambda
+finalMod <- glmnet(
+  x = predTrn,
+  y = respTrn,
+  alpha = 1,
+  family = "binomial",
+  lambda = bestLambda)
+
+# Predict on test data, ensuring that lambda is included:
+# type = "response" predicts the positive class for the test set
+finalProbs <- predict(finalMod, s = bestLambda, newx = predTst, type = "response")
+predictions <- ifelse(finalProbs > 0.5, "yes", "no")
+# Convert predictions to factor
+predictions <- factor(predictions, levels = c("no", "yes"))
+
+predTab<- table(Predicted = predictions, Actual = respTst)
+
+lassoTstMatrx <- confusionMatrix(predTab, positive = "yes")
+
+
+# Calculate error
+calcErr(predicted = predictions, actual = respTst)
+
+```
+
+
+
+**To summarise: the above model exhibits x error, making y condition true. Therefore, we can conclude y qualities for the classification model**
 
 ## Evaluate 
 
 **Address the tendency for the model to overfit**
 
-The above model exhibits different levels of accuracy, sensitivity, and specificity at different cutoffs. At each cutoff, we are changing the amount of positive and negative cases captured, (i.e. 1 for positive, 0 for negative) meaning that the change in Accuracy, Specificity, and Sensitivity is a direct reflection of however many positive and negative cases there are. For example, it is no surprise that the first model captures 99 percent of true positives under a 0.10 cutoff. It practically only captures positive cases. The inverse is true for the last model. 
+The above model exhibits different levels of Accuracy, Sensitivity, and Specificity at different cutoffs. This implies a change the amount of positive and negative cases captured, (i.e., 1 for positive, 0 for negative) meaning that the values for Accuracy, Specificity, and Sensitivity are a direct reflection of however many positive and negative cases there are. For example, it is no surprise that the first model captures 99 percent of true positives under a 0.10 cutoff. It practically only captures positive cases. The inverse is true for the last model. 
 
 With that said, the model with the most balanced trade-off between Accuracy, Sensitivity, and Specificity is the model with a 0.5 cutoff. It differs from the other models in the sense that it doesn't skew toward one metric, making for a unbiased classifier. Furthermore, the ROC curve hugs the top-left around the 0.50 mark, where the model exhibits its highest true positive and negative rates. The overall performance of the model is 0.82, meaning that it has a solid ability to discriminate between diabetics and non-diabetics. 
+
+## Conclusion
+
+
 
 
 
