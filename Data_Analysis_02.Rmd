@@ -36,6 +36,7 @@ library(caret)
 library(tidyr)
 library(skimr)
 library(glmnet)
+library(car)
 ```
 
 ## Load in data 
@@ -193,6 +194,14 @@ barplot(classImblnce, main = "Class Distribution", xlab = "Class", ylab = "Frequ
 ```
 We can rule out the possibility of a class imbalance. 
 
+## Test for multicollinearity
+
+```{r}
+vifVals<- vif(lrgModel)
+vifVals
+```
+
+
 ## Use the LASSO on the diabetes data to get an acceptable error
 
 We must use a modified OLS regression--LASSO--to get a lower test error. Such a modified regression penalizes the coefficients using lambdas to reduce error. 
@@ -218,7 +227,7 @@ respTst <- response[-trainIdx]
 lassoMod = cv.glmnet(
   x = predTrn,
   y = respTrn,
-  alpha = 1,
+  alpha = 0,
   family = "binomial")
 
 bestLambda <- lassoMod$lambda.min
@@ -227,7 +236,7 @@ bestLambda <- lassoMod$lambda.min
 finalMod <- glmnet(
   x = predTrn,
   y = respTrn,
-  alpha = 1,
+  alpha = 0,
   family = "binomial",
   lambda = bestLambda)
 
