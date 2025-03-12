@@ -13,13 +13,13 @@ For a diabetic, however, this "key" doesn't occur naturally, instead taking the 
 
 ## Data Collection
 
-The classification will be based on a Kaggle dataset derived from the CDCs Behavioral Risk Factor Surveillance System (BRFSS). The data contains 70,692 responses from the 2015 BRFSS survey, each related to risk factors like smoking, high cholesterol, and physical activity. Furthermore, the data contains an equal 50-50 split of respondents with and without diabetes. 
+The classification will be based on a dataset from the CDCs Behavioral Risk Factor Surveillance System (BRFSS). The data contains 70,692 responses from the 2015 BRFSS survey, each related to risk factors like smoking, high cholesterol, and physical activity. Furthermore, the data contains an equal 50-50 split of respondents with and without diabetes. 
 
 The data is binary, meaning that the predictors take on a value one or zero depending on whether the condition is true or not. For instance, if a respondent has a smoking habit they will be marked with a 1 for the smoking column; otherwise, they will receive a 0. There are some exceptions to this like BMI and age, where the values are continuous. 
 
 ## Methodology
 
-The classification will be done by binary logistic regression. As such, the response variable, diabetes, will take on two values, "yes" or "no", corresponding to whether the patient has the disease. The classification will start with a series of logistic models, each with a unique cutoff. The function will label, respectively, "yes" and "no" for the values above and below 0.5. Afterwards, these predicted values will be compared with the actual values in a table and put into a confusion matrix for evaluation. The method above will repeat itself with one large model with multiple cutoffs. The point of this is to ensure consistent results. 
+The classification will be done by binary logistic regression. As such, the response variable, Diabetes, will take on two values, "yes" or "no", corresponding to whether the patient has the disease. The classification will start with a series of logistic models, each with a unique cutoff. The function will label, respectively, "yes" and "no" for instances of Diabetes above or below a given cutoff. Afterwards, these predicted values will be compared with the actual values in a table and put into a confusion matrix for evaluation. The goal is to isolate and optimize one model for classifying diabetes. As such, modifications to this model will be taken if the it exhibits unacceptable metrics, such as a high test error. 
 
 ```{r setup, echo=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
@@ -132,7 +132,7 @@ rownames(metrics) = c("c = 0.10", "c = 0.33", "c = 0.50", "c = 0.66", "c = 0.90"
 
 metrics_tibble <- as_tibble(metrics, rownames = "Threshold")
 
-print(knitr::kable(metrics_tibble))
+knitr::kable(metrics_tibble)
 ```
 
 The table above contains regression models with varying cutoffs. The model with a 0.5 cutoff appears to have the most balanced trade-off between Accuracy, Specificity, and Sensitivity, exhibiting characteristics of a valid classifier. 
@@ -167,7 +167,6 @@ errorComparison = tibble::tibble(
 )
 
 knitr::kable(errorComparison)
-
 ```
 
 Since the train and test errors are closely aligned, there is an indication of an under-fit model. This implies that the model is too simple and cannot capture underlying patterns in the data. 
@@ -180,10 +179,10 @@ Since the train and test errors are closely aligned, there is an indication of a
 modelSum <- summary(lrgModel)
 
 
-print(modelSum$coefficients)
+knitr::kable(modelSum$coefficients)
 ```
 
-We can deduce BMI, GenHlth, Age, HighBP, and HighChol as the most significant predictors in the initial model. As such, we will use these for the following boosting model. 
+We can deduce `BMI`, `GenHlth`, `Age`, `HighBP`, and `HighChol` as the most significant predictors in the initial model. As such, we will add these predictors to the initial model, `lrgModel`, along with more complexity. 
 
 
 ## Data prep
@@ -191,9 +190,9 @@ We can deduce BMI, GenHlth, Age, HighBP, and HighChol as the most significant pr
 ```{r}
 # Convert training and test data to matrix format
 
-trainMatrx = model.matrix(Diabetes ~ BMI^4 + GenHlth^2 + Age + HighBP + HighChol
+trainMatrx = model.matrix(Diabetes ~ .^2 + BMI^2 + GenHlth^3 + Age + HighBP + HighChol
                           -1, data = diabetesTrn)
-testMatrx = model.matrix(Diabetes ~ BMI^4 + GenHlth^2 + Age + HighBP + HighChol
+testMatrx = model.matrix(Diabetes ~ .^2 + BMI^2 + GenHlth^3 + Age + HighBP + HighChol
                          -1, data = diabetesTst)
 
 # Convert response variable to binary 
@@ -207,11 +206,17 @@ testLabel = as.numeric(diabetesTst$Diabetes == "yes")
 ## Using a boosting model to reduce underfitting in the model
 
 ```{r}
+# Objective: sets objective function to binary classification 
+# eval_metric: Specifies the evaluation metric as "error", which refers to the classification error rate
+# max_depth: max depth of each decision tree "stump".
+# eta: learning rate applied to the decision tree
+
+
 parameters <- list(
   objective = "binary:logistic",
   eval_metric = "error",
   max_depth = 6,
-  eta = 0.3,
+  eta = 0.1,
   nthread = 2
 )
 
@@ -233,9 +238,44 @@ predLabels <- ifelse(predictions > 0.5, "yes", "no")
 boostTab <- table(Predicted = predLabels, Actual = diabetesTst$Diabetes)
 boostMatrx <- confusionMatrix(boostTab, positive = "yes")
 
-# print(boostMatrx)
-calcErr(actual = diabetesTst$Diabetes, predicted = testPred_03)
-calcErr(actual = diabetesTst$Diabetes, predicted = predLabels)
+boostMetrics <- rbind(
+  c(testMatrx_03$overall["Accuracy"],
+    testMatrx_03$byClass["Sensitivity"],
+    testMatrx_03$byClass["Specificity"]),
+  
+  c(boostMatrx$overall["Accuracy"],
+    boostMatrx$byClass["Sensitivity"],
+    boostMatrx$byClass["Specificity"]))
+
+rownames(boostMetrics) <- c("Standard", "Boost")
+
+metric_comparison <- as_tibble(boostMetrics, rownames = "Model")
+
+knitr::kable(metric_comparison)
+                
+```
+
+As we can see from the comparison, the boost model delivers more accurate results as a classifier compared to the standard model from before. 
+
+## Evaluating error from boost model
+
+```{r}
+# Create predictions on the train data 
+trnPredictions <- predict(boostMod, trainMatrx)
+
+# Apply 0.5 cutoff
+trnPredLabels <- ifelse(trnPredictions > 0.5, "yes", "no")
+
+trnBoostErr = calcErr(actual = diabetesTrn$Diabetes, predicted = trnPredLabels)
+tstBoostErr = calcErr(actual = diabetesTst$Diabetes, predicted = predLabels)
+
+errorComparison2 = tibble::tibble(
+  Type = c("Train Error", "Test Error"),
+  Error = c(trnBoostErr, tstBoostErr)
+)
+
+knitr::kable(errorComparison2)
+
 
 ```
 
