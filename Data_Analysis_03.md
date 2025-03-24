@@ -1,7 +1,7 @@
 Data Analysis
 ================
 Luke Fisher
-12 March, 2025
+24 March, 2025
 
 ## Introduction
 
@@ -44,9 +44,8 @@ The function will label, respectively, “yes” and “no” for instances of
 Diabetes above or below a given cutoff. Afterwards, these predicted
 values will be compared with the actual values in a table and put into a
 confusion matrix for evaluation. The goal is to isolate and optimize one
-model for classifying diabetes. As such, modifications to this model
-will be taken if the it exhibits unacceptable metrics, such as a high
-test error.
+model for classification. As such, modifications to this model will be
+taken if the it exhibits unacceptable metrics.
 
     ## 
     ## Attaching package: 'dplyr'
@@ -92,35 +91,16 @@ test error.
     ## 
     ##     slice
 
-## Load in data
+    ## Type 'citation("pROC")' for a citation.
+
+    ## 
+    ## Attaching package: 'pROC'
+
+    ## The following objects are masked from 'package:stats':
+    ## 
+    ##     cov, smooth, var
 
 ## Data Wrangling
-
-    ## 'data.frame':    70692 obs. of  22 variables:
-    ##  $ Diabetes            : Factor w/ 2 levels "no","yes": 1 1 1 1 1 1 1 1 1 1 ...
-    ##  $ HighBP              : num  1 1 0 1 0 0 0 0 0 0 ...
-    ##  $ HighChol            : num  0 1 0 1 0 0 1 0 0 0 ...
-    ##  $ CholCheck           : num  1 1 1 1 1 1 1 1 1 1 ...
-    ##  $ BMI                 : num  26 26 26 28 29 18 26 31 32 27 ...
-    ##  $ Smoker              : num  0 1 0 1 1 0 1 1 0 1 ...
-    ##  $ Stroke              : num  0 1 0 0 0 0 0 0 0 0 ...
-    ##  $ HeartDiseaseorAttack: num  0 0 0 0 0 0 0 0 0 0 ...
-    ##  $ PhysActivity        : num  1 0 1 1 1 1 1 0 1 0 ...
-    ##  $ Fruits              : num  0 1 1 1 1 1 1 1 1 1 ...
-    ##  $ Veggies             : num  1 0 1 1 1 1 1 1 1 1 ...
-    ##  $ HvyAlcoholConsump   : num  0 0 0 0 0 0 1 0 0 0 ...
-    ##  $ AnyHealthcare       : num  1 1 1 1 1 0 1 1 1 1 ...
-    ##  $ NoDocbcCost         : num  0 0 0 0 0 0 0 0 0 0 ...
-    ##  $ GenHlth             : num  3 3 1 3 2 2 1 4 3 3 ...
-    ##  $ MentHlth            : num  5 0 0 0 0 7 0 0 0 0 ...
-    ##  $ PhysHlth            : num  30 0 10 3 0 0 0 0 0 6 ...
-    ##  $ DiffWalk            : num  0 0 0 0 0 0 0 0 0 0 ...
-    ##  $ Sex                 : num  1 1 1 1 0 0 1 1 0 1 ...
-    ##  $ Age                 : num  4 12 13 11 8 1 13 6 3 6 ...
-    ##  $ Education           : num  6 6 6 6 5 4 5 4 6 4 ...
-    ##  $ Income              : num  8 8 8 8 8 7 6 3 8 4 ...
-
-## Cross validation
 
     ##       Diabetes HighBP HighChol CholCheck BMI Smoker Stroke HeartDiseaseorAttack
     ## 36027      yes      0        0         1  32      0      0                    0
@@ -156,15 +136,15 @@ test error.
     ## 11078       1        0        0        0   1   6         4      3
     ## 38966       3        2        1        1   0   8         3      3
 
-    ## 
-    ## 
-    ## |Threshold |  Accuracy| Sensitivity| Specificity|
-    ## |:---------|---------:|-----------:|-----------:|
-    ## |c = 0.10  | 0.5426834|   0.9973008|   0.0919718|
-    ## |c = 0.33  | 0.7131339|   0.9053843|   0.5225352|
-    ## |c = 0.50  | 0.7339274|   0.7597670|   0.7083099|
-    ## |c = 0.66  | 0.6940378|   0.5367240|   0.8500000|
-    ## |c = 0.90  | 0.5407030|   0.0912061|   0.9863380|
+## Building classifiers
+
+| Threshold |  Accuracy | Sensitivity | Specificity |
+|:----------|----------:|------------:|------------:|
+| c = 0.10  | 0.5932527 |   0.9930388 |   0.1969014 |
+| c = 0.33  | 0.7356249 |   0.9041057 |   0.5685915 |
+| c = 0.50  | 0.7483556 |   0.7675806 |   0.7292958 |
+| c = 0.66  | 0.7161044 |   0.5726666 |   0.8583099 |
+| c = 0.90  | 0.5513120 |   0.1128001 |   0.9860563 |
 
 The table above contains regression models with varying cutoffs. The
 model with a 0.5 cutoff appears to have the most balanced trade-off
@@ -173,44 +153,68 @@ characteristics of a valid classifier.
 
 ## Test errors
 
-    ## [1] 0.2660726
+    ## [1] 0.2516444
 
-## Comparing test and train data to test over-fitting.
+## Comparing test and train errors of the logistic model.
 
 | Type        |     Error |
 |:------------|----------:|
-| Train Error | 0.2698707 |
-| Test Error  | 0.2660726 |
+| Train Error | 0.2518346 |
+| Test Error  | 0.2516444 |
 
-Since the train and test errors are closely aligned, there is an
-indication of an under-fit model. This implies that the model is too
-simple and cannot capture underlying patterns in the data.
+## Calculating RMSE for the logistic model.
+
+| Type       |      RMSE |
+|:-----------|----------:|
+| Train RMSE | 0.5018312 |
+| Test RMSE  | 0.5016417 |
+
+The error values above are too high for classifying diabetes. Sitting at
+a rate of 0.25, both errors carry harmful consequences, specifically the
+testing set. If 0.25 percent of predictions are incorrect, then
+misdiagnosis will occur and people won’t get the treatment that they
+need. The RMSE values reaffirm this issue at a staggering 0.50 for each.
+This implies that the predicted values are, on average, 0.5 units away
+from the actual values.
+
+With high error and RMSE values, the initial model must be modified such
+that it reflects better accuracy. This will be done by isolating
+significant predictors and plugging them into a boosting model.
+
+    ## Setting levels: control = 0, case = 1
+
+    ## Setting direction: controls < cases
+
+![](Data_Analysis_03_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
 
 ## Significance testing
 
-|                      |   Estimate | Std. Error |    z value | Pr(\>\|z\|) |
-|:---------------------|-----------:|-----------:|-----------:|------------:|
-| HighBP               |  0.8635216 |  0.0215449 |  40.080106 |   0.0000000 |
-| HighChol             |  0.6121934 |  0.0206149 |  29.696658 |   0.0000000 |
-| CholCheck            | -0.7945084 |  0.0567606 | -13.997523 |   0.0000000 |
-| BMI                  |  0.0351258 |  0.0014528 |  24.178578 |   0.0000000 |
-| Smoker               | -0.1218465 |  0.0204185 |  -5.967451 |   0.0000000 |
-| Stroke               |  0.1803990 |  0.0454278 |   3.971109 |   0.0000715 |
-| HeartDiseaseorAttack |  0.3675319 |  0.0312398 |  11.764876 |   0.0000000 |
-| PhysActivity         | -0.1984984 |  0.0228934 |  -8.670558 |   0.0000000 |
-| Fruits               | -0.1150341 |  0.0211927 |  -5.428006 |   0.0000001 |
-| Veggies              | -0.1700174 |  0.0253268 |  -6.712942 |   0.0000000 |
-| HvyAlcoholConsump    | -0.8235246 |  0.0525319 | -15.676647 |   0.0000000 |
-| AnyHealthcare        | -0.7324068 |  0.0491408 | -14.904263 |   0.0000000 |
-| NoDocbcCost          | -0.3183324 |  0.0361635 |  -8.802579 |   0.0000000 |
-| GenHlth              |  0.3766305 |  0.0117935 |  31.935294 |   0.0000000 |
-| MentHlth             | -0.0084877 |  0.0013928 |  -6.093898 |   0.0000000 |
-| PhysHlth             | -0.0026982 |  0.0012981 |  -2.078504 |   0.0376630 |
-| DiffWalk             |  0.2295780 |  0.0283703 |   8.092183 |   0.0000000 |
-| Sex                  |  0.1803907 |  0.0207010 |   8.714129 |   0.0000000 |
-| Age                  |  0.0751976 |  0.0039056 |  19.253925 |   0.0000000 |
-| Education            | -0.2553002 |  0.0103695 | -24.620400 |   0.0000000 |
-| Income               | -0.0860089 |  0.0055743 | -15.429574 |   0.0000000 |
+*Create coefficient plot?*
+
+|                      |   Estimate | Std. Error |     z value | Pr(\>\|z\|) |
+|:---------------------|-----------:|-----------:|------------:|------------:|
+| (Intercept)          | -6.8482299 |  0.1389907 | -49.2711376 |   0.0000000 |
+| HighBP               |  0.7420328 |  0.0220466 |  33.6575227 |   0.0000000 |
+| HighChol             |  0.5838587 |  0.0210585 |  27.7256017 |   0.0000000 |
+| CholCheck            |  1.3477969 |  0.0912931 |  14.7633983 |   0.0000000 |
+| BMI                  |  0.0754391 |  0.0017637 |  42.7740408 |   0.0000000 |
+| Smoker               |  0.0038118 |  0.0210863 |   0.1807712 |   0.8565472 |
+| Stroke               |  0.1933263 |  0.0458602 |   4.2155562 |   0.0000249 |
+| HeartDiseaseorAttack |  0.2513817 |  0.0316545 |   7.9414212 |   0.0000000 |
+| PhysActivity         | -0.0243045 |  0.0238038 |  -1.0210322 |   0.3072392 |
+| Fruits               | -0.0577295 |  0.0218803 |  -2.6384265 |   0.0083292 |
+| Veggies              | -0.0445863 |  0.0260545 |  -1.7112709 |   0.0870311 |
+| HvyAlcoholConsump    | -0.7332077 |  0.0539896 | -13.5805303 |   0.0000000 |
+| AnyHealthcare        |  0.0381443 |  0.0527735 |   0.7227938 |   0.4698066 |
+| NoDocbcCost          |  0.0304985 |  0.0380442 |   0.8016583 |   0.4227507 |
+| GenHlth              |  0.5796055 |  0.0127947 |  45.3004758 |   0.0000000 |
+| MentHlth             | -0.0040392 |  0.0014334 |  -2.8179099 |   0.0048337 |
+| PhysHlth             | -0.0083631 |  0.0013315 |  -6.2809966 |   0.0000000 |
+| DiffWalk             |  0.1250893 |  0.0289458 |   4.3215062 |   0.0000155 |
+| Sex                  |  0.2632854 |  0.0214026 |  12.3015753 |   0.0000000 |
+| Age                  |  0.1506930 |  0.0043579 |  34.5795388 |   0.0000000 |
+| Education            | -0.0293567 |  0.0114374 |  -2.5667216 |   0.0102665 |
+| Income               | -0.0586832 |  0.0058000 | -10.1178662 |   0.0000000 |
 
 We can deduce `BMI`, `GenHlth`, `Age`, `HighBP`, and `HighChol` as the
 most significant predictors in the initial model. As such, we will add
@@ -221,48 +225,91 @@ complexity.
 
 ## Using a boosting model to reduce underfitting in the model
 
-| Model    |  Accuracy | Sensitivity | Specificity |
-|:---------|----------:|------------:|------------:|
-| Standard | 0.7339274 |   0.7597670 |   0.7083099 |
-| Boost    | 0.7524577 |   0.7948572 |   0.7104225 |
-
-As we can see from the comparison, the boost model delivers more
-accurate results as a classifier compared to the standard model from
-before.
-
 ## Evaluating error from boost model
 
 | Type        |     Error |
 |:------------|----------:|
-| Train Error | 0.2220041 |
-| Test Error  | 0.2475423 |
+| Train Error | 0.2305802 |
+| Test Error  | 0.2467643 |
+
+## Calculate RMSE.
+
+| Type       |      RMSE |
+|:-----------|----------:|
+| Train RMSE | 0.3956497 |
+| Test RMSE  | 0.4077824 |
+
+| Model    |  Accuracy | Sensitivity | Specificity |
+|:---------|----------:|------------:|------------:|
+| Standard | 0.7483556 |   0.7675806 |   0.7292958 |
+| Boost    | 0.7532357 |   0.7931524 |   0.7136620 |
+
+    ## Setting levels: control = 0, case = 1
+
+    ## Setting direction: controls < cases
+
+![](Data_Analysis_03_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
+
+**Continue with this section**
+
+As we can see from the comparison, the boost model delivers better
+results compared to the previous model.
+
+The errors above, in comparison to the previous model, are not too
+different. However, the training error is slightly lower than the
+testing error in the boosting model, suggesting more complexity and
+better accuracy without over-fitting. This figures as the errors are
+close in value, indicating the model’s ability to generalize on the test
+data–that is, predict well on unseen data, not just the data it was
+trained on.
+
+The RMSE values likewise reflect this generalization ability with train
+and test values, respectively, as 0.39 and 0.40. Not only this, but the
+values are an improvement from the previous RMSE values of 0.50 each.
+Furthermore, the improved generalization is evident in the confusion
+matrix above, with both accuracy and sensitivity rising.
+
+## Evaluate
+
+**Hammer in the importance of RMSE and why it should be lowered. Ignore
+the errors. Add in ROC curve for both models?**
+
+Two models were used to classify Diabetes, a logistic and xgboost model.
+For the logistic method, models with multiple cutoffs were used to
+identify the most accurate one, with the 0.5 cutoff yielding the best
+results. The model exhibited the most balanced trade off between
+Accuracy, Sensitivity, and Specificity, with the values, respectively,
+of 0.74, 0.76, 0.72. This indicated that the model was able to identify
+instances of diabetes with 74 percent Accuracy, with true positives and
+negatives sitting at 76 and 72 percent, respectively. To ensure that
+these metrics were not the result of under or over-fitting, the test and
+train error were compared. With both values sitting around 0.25, there
+was little reason to suspect a poor fit model, as such a case would
+involve a large gap between the errors. The same can be said about the
+train and test RMSE, which both sat around 0.5. Here, however, it was
+apparent that the RMSE values were too high. The predicted values were,
+on average, 0.5 units away from the actual values, which is significant
+when the range of predicted probabilities is 0 and 1. Thus, it was
+important to address this issue by reducing the residuals in the model.
+
+This can be done through a gradient boost model using xgboost. In this
+model, “weak learners”, or stumps from a decision tree, are aggregated
+in an ensemble model. The residuals from this model are then scaled by a
+learning rate and fitted to a new model, sequentially reducing error.
+This ensures error is reduced without over-fitting. The effects of the
+xgboost model are evident in the RMSE values, with the train and test
+RMSE, respectively, sitting at 0.39 and 0.40, down from 0.50 in the
+logistic model. Additionally, train and test errors sit at 0.23 and
+0.24, respectively, slightly lower than 0.25. This improvement in
+accuracy is reaffirmed by the comparison in performance metrics, with
+the boost model leading in all but one category.
+
+## Conclusion
 
 The plan above is to isolate the most significant predictors in the
 initial model by measuring their p-values. The predictors with the
 lowest p-values (i.e., p-value \<0.05) are added to matrices for the
 boosting model. This ensures that the most significant predictors are
 used, and the test error in the boosting model is lowered from its
-initial value.
-
-## Evaluate
-
-The above model exhibits different levels of Accuracy, Sensitivity, and
-Specificity at different cutoffs. This implies a change the amount of
-positive and negative cases captured, (i.e., 1 for positive, 0 for
-negative) meaning that the values for Accuracy, Specificity, and
-Sensitivity are a direct reflection of however many positive and
-negative cases there are. For example, it is no surprise that the first
-model captures 99 percent of true positives under a 0.10 cutoff. It
-practically only captures positive cases. The inverse is true for the
-last model.
-
-With that said, the model with the most balanced trade-off between
-Accuracy, Sensitivity, and Specificity is the model with a 0.5 cutoff.
-It differs from the other models in the sense that it doesn’t skew
-toward one metric, making for a unbiased classifier. Furthermore, the
-ROC curve hugs the top-left around the 0.50 mark, where the model
-exhibits its highest true positive and negative rates. The overall
-performance of the model is 0.82, meaning that it has a solid ability to
-discriminate between diabetics and non-diabetics.
-
-## Conclusion
+initial value. After, we want to ensure that over-fitting is not present
+by calculating the RMSE for the boosting model.
