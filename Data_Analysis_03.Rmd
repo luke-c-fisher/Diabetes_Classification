@@ -280,14 +280,7 @@ A gradient boost model using xgboost was used. In this model, "weak learners", o
 
 ## Conclusion
 
-Both models above were able to predict Diabetes with acceptable accuracy. However, the logistic model contained RMSE values 
 
-
-The boost model was able to do this without over-fitting, as the train and test RMSE's were close together. This improvement in accuracy was partially due to feature selection, where the most significant predictors in the logistic model were isolated for use in the boost model. 
-
-The resulting accuracy was an improvement from the logistic model, as was sensitivity. The caveat was that accuracy came at the expense of specificity, or the model's ability to capture true negatives. In the context of detecting Diabetes, however, the consequences of a false positive (specificity) carry less weight than a false negative (sensitivity), in which case a diabetic would be incorrectly labeled as non-diabetic. As such, specificity is less of a concern, as the importance lies in the model's ability to detect Diabetics, not non-diabetics. 
-
-With an improvement in accuracy, our boost model is able to predict the instance of Diabetes with 75 percent accuracy. With 
 
 
 
