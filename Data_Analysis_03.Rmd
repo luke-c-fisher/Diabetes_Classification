@@ -1,5 +1,5 @@
 ---
-title: "Data Analysis"
+title: "Classifying Diabetes"
 author: "Luke Fisher"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: rmarkdown::github_document
@@ -22,7 +22,7 @@ The data is binary, meaning that the predictors take on a value one or zero depe
 The classification will be done by binary logistic regression. As such, the response variable, Diabetes, will take on two values, "yes" or "no", corresponding to whether the patient has the disease. The classification will start with a series of logistic models, each with a unique cutoff. The function will label, respectively, "yes" and "no" for instances of Diabetes above or below a given cutoff. Afterwards, these predicted values will be compared with the actual values in a table and put into a confusion matrix for evaluation. The goal is to isolate and optimize one model for classification. As such, modifications to this model will be taken if the it exhibits unacceptable metrics.  
 
 ```{r setup, echo=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
 ```{r}
@@ -37,6 +37,7 @@ library(glmnet)
 library(car)
 library(xgboost)
 library(pROC)
+library(knitr)
 ```
 
 
@@ -63,7 +64,7 @@ diabetesTst = diabetesData[-diabetesIdx, ]
 
 dataHead <- head(diabetesTrn, n = 10)
 
-knitr::kable(dataHead)
+kable(dataHead)
 ```
 
 ## Building classifiers
@@ -136,28 +137,19 @@ rownames(metrics) = c("c = 0.10", "c = 0.33", "c = 0.50", "c = 0.66", "c = 0.90"
 
 metrics_tibble <- as_tibble(metrics, rownames = "Threshold")
 
-knitr::kable(metrics_tibble)
+kable(metrics_tibble)
 ```
 
 
 The table above contains regression models with varying cutoffs. The model with a 0.5 cutoff appears to have the most balanced trade-off between Accuracy, Specificity, and Sensitivity, exhibiting characteristics of a valid classifier. 
 
-## Test errors
+## Comparing test and train errors of the logistic model. 
 
 ```{r}
-# Test for error in the 0.5 prediction
 calcErr = function(actual, predicted) {
   mean(actual != predicted)
 }
 
-logModelErr <- calcErr(actual = diabetesTst$Diabetes, predicted = testPred_03)
-
-knitr::kable(logModelErr)
-```
-
-## Comparing test and train errors of the logistic model. 
-
-```{r}
 trainPred_03 = get_logistic_pred(lrgModel, diabetesTrn, res = "Diabetes", 
 pos = "yes", neg = "no", cut = 0.5)
 
@@ -173,42 +165,13 @@ errorComparison = tibble::tibble(
   Error = c(trainErr_03, testErr_03)
 )
 
-knitr::kable(errorComparison)
+kable(errorComparison)
 ```
 
-## Calculating RMSE for the logistic model. 
 
-```{r}
-calc_rmse = function(actual, predicted) {
-  sqrt(mean((actual - predicted) ^ 2))
-}
-trainLabel = as.numeric(diabetesTrn$Diabetes == "yes")
-testLabel = as.numeric(diabetesTst$Diabetes == "yes")
-
-testPredNum <- ifelse(testPred_03 == "yes", 1, 0)
-trainPredNum <- ifelse(trainPred_03 == "yes", 1, 0)
-
-trnRMSE_1 <- calc_rmse(actual = trainLabel, predicted = trainPredNum)
-tstRMSE_1 <- calc_rmse(actual = testLabel, predicted = testPredNum)
-
-rmseComparison_1 = tibble::tibble(
-  Type = c("Train RMSE", "Test RMSE"),
-  Error = c(trnRMSE_1, tstRMSE_1)
-)
-
-colnames(rmseComparison_1) <- c("Type", "RMSE")
-
-knitr::kable(rmseComparison_1)
-
-```
-
-The error values above are too high for classifying diabetes. Sitting at a rate of 0.25, both errors carry harmful consequences, specifically the testing set. If 0.25 percent of predictions are incorrect, then misdiagnosis will occur and people won't get the treatment that they need. The RMSE values reaffirm this issue at a staggering 0.50 for each. This implies that the predicted values are, on average, 0.5 units away from the actual values. 
-
-With high error and RMSE values, the initial model must be modified such that it reflects better accuracy. This will be done by isolating significant predictors and plugging them into a boosting model.
 
 ## Significance testing
 
-*Create coefficient plot?*
 
 ```{r}
 # Isolate the most significant predictors
@@ -216,11 +179,10 @@ With high error and RMSE values, the initial model must be modified such that it
 modelSum <- summary(lrgModel)
 
 
-knitr::kable(modelSum$coefficients)
+kable(modelSum$coefficients)
 ```
 
 We can deduce `BMI`, `GenHlth`, `Age`, `HighBP`, and `HighChol` as the most significant predictors in the initial model. As such, we will add these predictors to the initial model, `lrgModel`, along with more complexity. 
-
 
 ## Data prep
 
@@ -236,14 +198,11 @@ testMatrx = model.matrix(Diabetes ~ . + I(BMI^2) + I(GenHlth^2) + Age + HighBP +
 ```
 
 
-## Using a boosting model to reduce underfitting in the model
+## Creating an Boost Model
 
 ```{r}
-# Objective: sets objective function to binary classification 
-# eval_metric: Specifies the evaluation metric as "error", which refers to the classification error rate
-# max_depth: max depth of each decision tree, "stump".
-# eta: learning rate applied to the decision tree
-
+trainLabel = as.numeric(diabetesTrn$Diabetes == "yes")
+testLabel = as.numeric(diabetesTst$Diabetes == "yes")
 
 parameters <- list(
   objective = "binary:logistic",
@@ -286,26 +245,7 @@ errorComparison2 = tibble::tibble(
   Error = c(trnBoostErr, tstBoostErr)
 )
 
-knitr::kable(errorComparison2)
-
-```
-
-## Calculate RMSE.
-
-```{r}
-# helper function for calculating RMSE
-
-trnRMSE <- calc_rmse(actual = trainLabel, predicted = trnPredictions)
-tstRMSE <- calc_rmse(actual = testLabel, predicted = tstPredictions)
-
-rmseComparison = tibble::tibble(
-  Type = c("Train RMSE", "Test RMSE"),
-  Error = c(trnRMSE, tstRMSE)
-)
-
-colnames(rmseComparison) <- c("Type", "RMSE")
-
-knitr::kable(rmseComparison)
+kable(errorComparison2)
 
 ```
 
@@ -325,35 +265,30 @@ boostMetrics <- rbind(
     boostMatrx$byClass["Sensitivity"],
     boostMatrx$byClass["Specificity"]))
 
-rownames(boostMetrics) <- c("Standard", "Boost")
+rownames(boostMetrics) <- c("Logistic", "Boost")
 
 metric_comparison <- as_tibble(boostMetrics, rownames = "Model")
 
-knitr::kable(metric_comparison)
+kable(metric_comparison)
 ```
-
-
-**Continue with this section**
-
-As we can see from the comparison, the boost model delivers better results compared to the previous model. 
-
-The errors above, in comparison to the previous model, are not too different. However, the training error is slightly lower than the testing error in the boosting model, suggesting more complexity and better accuracy without over-fitting. This figures as the errors are close in value, indicating the model's ability to generalize on the test data--that is, predict well on unseen data, not just the data it was trained on. 
-
-The RMSE values likewise reflect this generalization ability with train and test values, respectively, as 0.39 and 0.40. Not only this, but the values are an improvement from the previous RMSE values of 0.50 each, indicating a better performance on the train and test data. This improvement in accuracy is evident in the performance metrics above. 
-
 
 ## Evaluate 
 
-**Hammer in the importance of RMSE and why it should be lowered. Ignore the errors. Add in ROC curve for both models?**
+Two models were used to classify Diabetes, a logistic and xgboost model. For the logistic method, models with multiple cutoffs were used to identify the most accurate one, with the 0.5 cutoff yielding the best results. The model exhibited the most balanced trade off between Accuracy, Sensitivity, and Specificity, with the values, respectively, of 0.74, 0.76, 0.72. This indicated that the model was able to identify instances of diabetes with 74 percent Accuracy, with true positives and negatives sitting at 76 and 72 percent, respectively. To ensure that these metrics were not the result of under or over-fitting, the test and train error were compared. With both values sitting around 0.25, there was little reason to suspect a poor fit model, as such a case would involve a large gap between the errors.
 
-Two models were used to classify Diabetes, a logistic and xgboost model. For the logistic method, models with multiple cutoffs were used to identify the most accurate one, with the 0.5 cutoff yielding the best results. The model exhibited the most balanced trade off between Accuracy, Sensitivity, and Specificity, with the values, respectively, of 0.74, 0.76, 0.72. This indicated that the model was able to identify instances of diabetes with 74 percent Accuracy, with true positives and negatives sitting at 76 and 72 percent, respectively. To ensure that these metrics were not the result of under or over-fitting, the test and train error were compared. With both values sitting around 0.25, there was little reason to suspect a poor fit model, as such a case would involve a large gap between the errors. The same can be said about the train and test RMSE, which both sat around 0.5. Here, however, it was apparent that the RMSE values were too high. The predicted values were, on average, 0.5 units away from the actual values, which is significant when the range of predicted probabilities is 0 and 1. Thus, it was important to address this issue by reducing the residuals in the model.
-
-This can be done through a gradient boost model using xgboost. In this model, "weak learners", or stumps from a decision tree, are aggregated in an ensemble model. The residuals from this model are then scaled by a learning rate and fitted to a new model. This ensures error is reduced without over-fitting. The effects of the xgboost model are evident in the RMSE values, with the train and test, respectively, sitting at 0.39 and 0.40, down from 0.50 in the logistic model. Additionally, the errors are down from 0.25, with the train and test sitting at 0.23 and 0.24, respectively. This improvement in accuracy is reaffirmed by the performance metrics, with the boost model leading in accuracy and sensitivity. 
+A gradient boost model using xgboost was used. In this model, "weak learners", or stumps from a decision tree, are aggregated in an ensemble model. The residuals from this model are then scaled by a learning rate and fitted to a new model. This ensures error is reduced without over-fitting. The effects of the xgboost model are evident in the RMSE values, with the train and test, respectively, sitting at 0.39 and 0.40, down from 0.50 in the logistic model. Additionally, the errors are down from 0.25, with the train and test sitting at 0.23 and 0.24, respectively. This improvement in accuracy is reaffirmed by the performance metrics, with the boost model leading in accuracy and sensitivity. 
 
 ## Conclusion
 
-While both models accurately predicted Diabetes, the logistic model contained issues that were resolved in the boost model. With train and test RMSE values, respectively, of 0.5 each, the accuracy of the logistic model was not reliable. Thus, a boost model was used to reduce this error and improve accuracy. 
-The boost model exhibited lower RMSE values, improving accuracy while maintaining the model's ability to generalize on unseen data. This is clear in the sense that the  train and test RMSE for the boost model are close together, with train RMSE slightly lower. 
+Both models above were able to predict Diabetes with acceptable accuracy. However, the logistic model contained RMSE values 
+
+
+The boost model was able to do this without over-fitting, as the train and test RMSE's were close together. This improvement in accuracy was partially due to feature selection, where the most significant predictors in the logistic model were isolated for use in the boost model. 
+
+The resulting accuracy was an improvement from the logistic model, as was sensitivity. The caveat was that accuracy came at the expense of specificity, or the model's ability to capture true negatives. In the context of detecting Diabetes, however, the consequences of a false positive (specificity) carry less weight than a false negative (sensitivity), in which case a diabetic would be incorrectly labeled as non-diabetic. As such, specificity is less of a concern, as the importance lies in the model's ability to detect Diabetics, not non-diabetics. 
+
+With an improvement in accuracy, our boost model is able to predict the instance of Diabetes with 75 percent accuracy. With 
+
 
 
 

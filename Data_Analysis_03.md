@@ -1,7 +1,7 @@
-Data Analysis
+Classifying Diabetes
 ================
 Luke Fisher
-24 March, 2025
+01 April, 2025
 
 ## Introduction
 
@@ -47,96 +47,131 @@ confusion matrix for evaluation. The goal is to isolate and optimize one
 model for classification. As such, modifications to this model will be
 taken if the it exhibits unacceptable metrics.
 
-    ## 
-    ## Attaching package: 'dplyr'
+``` r
+library(dplyr)
+library(ggplot2)
+library(ISLR)
+library(tibble)
+library(caret)
+library(tidyr)
+library(skimr)
+library(glmnet)
+library(car)
+library(xgboost)
+library(pROC)
+library(knitr)
+```
 
-    ## The following objects are masked from 'package:stats':
-    ## 
-    ##     filter, lag
-
-    ## The following objects are masked from 'package:base':
-    ## 
-    ##     intersect, setdiff, setequal, union
-
-    ## Loading required package: lattice
-
-    ## Loading required package: Matrix
-
-    ## 
-    ## Attaching package: 'Matrix'
-
-    ## The following objects are masked from 'package:tidyr':
-    ## 
-    ##     expand, pack, unpack
-
-    ## Loaded glmnet 4.1-8
-
-    ## Warning: package 'car' was built under R version 4.3.3
-
-    ## Loading required package: carData
-
-    ## 
-    ## Attaching package: 'car'
-
-    ## The following object is masked from 'package:dplyr':
-    ## 
-    ##     recode
-
-    ## Warning: package 'xgboost' was built under R version 4.3.3
-
-    ## 
-    ## Attaching package: 'xgboost'
-
-    ## The following object is masked from 'package:dplyr':
-    ## 
-    ##     slice
-
-    ## Type 'citation("pROC")' for a citation.
-
-    ## 
-    ## Attaching package: 'pROC'
-
-    ## The following objects are masked from 'package:stats':
-    ## 
-    ##     cov, smooth, var
+``` r
+diabetesData <- read.csv('/Users/lukefisher/Desktop/Coding/repos/Health_Analytics/Data/Diabetes_Indicators_Binary.csv')
+```
 
 ## Data Wrangling
 
-    ##       Diabetes HighBP HighChol CholCheck BMI Smoker Stroke HeartDiseaseorAttack
-    ## 36027      yes      0        0         1  32      0      0                    0
-    ## 32605       no      1        0         1  29      1      0                    1
-    ## 67519      yes      1        0         1  30      1      1                    0
-    ## 41322      yes      1        0         1  24      1      0                    0
-    ## 54098      yes      1        1         1  28      1      1                    1
-    ## 34711       no      0        0         1  26      1      0                    0
-    ## 27963       no      0        0         1  36      1      0                    0
-    ## 12132       no      0        0         1  28      1      0                    0
-    ## 11078       no      0        0         0  22      0      0                    0
-    ## 38966      yes      1        0         1  44      0      0                    0
-    ##       PhysActivity Fruits Veggies HvyAlcoholConsump AnyHealthcare NoDocbcCost
-    ## 36027            1      1       1                 0             1           0
-    ## 32605            1      0       1                 0             1           0
-    ## 67519            1      0       1                 0             1           0
-    ## 41322            1      1       1                 0             1           0
-    ## 54098            1      1       1                 0             1           0
-    ## 34711            1      1       1                 0             0           0
-    ## 27963            1      0       1                 0             1           0
-    ## 12132            1      1       1                 0             1           0
-    ## 11078            1      1       1                 0             0           1
-    ## 38966            1      1       1                 0             1           0
-    ##       GenHlth MentHlth PhysHlth DiffWalk Sex Age Education Income
-    ## 36027       3        0        0        0   1  11         5      7
-    ## 32605       5        0       28        1   1   9         4      6
-    ## 67519       5        0       30        1   1   8         6      7
-    ## 41322       2        0        0        0   1   9         4      3
-    ## 54098       4        0        0        0   0  13         5      6
-    ## 34711       3        0        0        0   0   3         4      3
-    ## 27963       3        0        2        0   1   6         5      8
-    ## 12132       2        0        0        1   0   8         5      4
-    ## 11078       1        0        0        0   1   6         4      3
-    ## 38966       3        2        1        1   0   8         3      3
+``` r
+diabetesData <- diabetesData %>% 
+rename(Diabetes = Diabetes_binary) %>%
+mutate(Diabetes = factor(Diabetes, levels = c(0, 1), labels = c("no", "yes")))
+```
+
+``` r
+# Split the data into an 80/20 train vs. test split. Set the seed for replicability.
+set.seed(44222)
+
+diabetesIdx = sample((nrow(diabetesData)), size = 0.8 * nrow(diabetesData))
+diabetesTrn = diabetesData[diabetesIdx, ]
+diabetesTst = diabetesData[-diabetesIdx, ]
+
+dataHead <- head(diabetesTrn, n = 10)
+
+kable(dataHead)
+```
+
+|       | Diabetes | HighBP | HighChol | CholCheck | BMI | Smoker | Stroke | HeartDiseaseorAttack | PhysActivity | Fruits | Veggies | HvyAlcoholConsump | AnyHealthcare | NoDocbcCost | GenHlth | MentHlth | PhysHlth | DiffWalk | Sex | Age | Education | Income |
+|:------|:---------|-------:|---------:|----------:|----:|-------:|-------:|---------------------:|-------------:|-------:|--------:|------------------:|--------------:|------------:|--------:|---------:|---------:|---------:|----:|----:|----------:|-------:|
+| 36027 | yes      |      0 |        0 |         1 |  32 |      0 |      0 |                    0 |            1 |      1 |       1 |                 0 |             1 |           0 |       3 |        0 |        0 |        0 |   1 |  11 |         5 |      7 |
+| 32605 | no       |      1 |        0 |         1 |  29 |      1 |      0 |                    1 |            1 |      0 |       1 |                 0 |             1 |           0 |       5 |        0 |       28 |        1 |   1 |   9 |         4 |      6 |
+| 67519 | yes      |      1 |        0 |         1 |  30 |      1 |      1 |                    0 |            1 |      0 |       1 |                 0 |             1 |           0 |       5 |        0 |       30 |        1 |   1 |   8 |         6 |      7 |
+| 41322 | yes      |      1 |        0 |         1 |  24 |      1 |      0 |                    0 |            1 |      1 |       1 |                 0 |             1 |           0 |       2 |        0 |        0 |        0 |   1 |   9 |         4 |      3 |
+| 54098 | yes      |      1 |        1 |         1 |  28 |      1 |      1 |                    1 |            1 |      1 |       1 |                 0 |             1 |           0 |       4 |        0 |        0 |        0 |   0 |  13 |         5 |      6 |
+| 34711 | no       |      0 |        0 |         1 |  26 |      1 |      0 |                    0 |            1 |      1 |       1 |                 0 |             0 |           0 |       3 |        0 |        0 |        0 |   0 |   3 |         4 |      3 |
+| 27963 | no       |      0 |        0 |         1 |  36 |      1 |      0 |                    0 |            1 |      0 |       1 |                 0 |             1 |           0 |       3 |        0 |        2 |        0 |   1 |   6 |         5 |      8 |
+| 12132 | no       |      0 |        0 |         1 |  28 |      1 |      0 |                    0 |            1 |      1 |       1 |                 0 |             1 |           0 |       2 |        0 |        0 |        1 |   0 |   8 |         5 |      4 |
+| 11078 | no       |      0 |        0 |         0 |  22 |      0 |      0 |                    0 |            1 |      1 |       1 |                 0 |             0 |           1 |       1 |        0 |        0 |        0 |   1 |   6 |         4 |      3 |
+| 38966 | yes      |      1 |        0 |         1 |  44 |      0 |      0 |                    0 |            1 |      1 |       1 |                 0 |             1 |           0 |       3 |        2 |        1 |        1 |   0 |   8 |         3 |      3 |
 
 ## Building classifiers
+
+``` r
+get_logistic_pred = function(mod, data, res = "y", pos = 1, neg = 0, cut = 0.5) {
+  probs = predict(mod, newdata = data, type = "response")
+  ifelse(probs > cut, pos, neg)
+}
+
+
+# Creating separate predictions based on different cutoffs
+
+lrgModel = glm(Diabetes ~ ., data = diabetesTrn, family = "binomial")
+
+testPred_01 = get_logistic_pred(lrgModel, diabetesTst, res = "Diabetes", 
+pos = "yes", neg = "no", cut = 0.1)
+
+testPred_02 = get_logistic_pred(lrgModel, diabetesTst, res = "Diabetes", 
+pos = "yes", neg = "no", cut = 0.33)
+
+testPred_03 = get_logistic_pred(lrgModel, diabetesTst, res = "Diabetes", 
+pos = "yes", neg = "no", cut = 0.5)
+
+testPred_04 = get_logistic_pred(lrgModel, diabetesTst, res = "Diabetes", 
+pos = "yes", neg = "no", cut = 0.66)
+
+testPred_05 = get_logistic_pred(lrgModel, diabetesTst, res = "Diabetes", 
+pos = "yes", neg = "no", cut = 0.9)
+
+
+# Evaluate Accuaracy, Sensitivity, and Specificity for each cutoff
+testTab_01 <- table(predicted = testPred_01, actual = diabetesTst$Diabetes)
+testTab_02 <- table(predicted = testPred_02, actual = diabetesTst$Diabetes)
+testTab_03 <- table(predicted = testPred_03, actual = diabetesTst$Diabetes)
+testTab_04 <- table(predicted = testPred_04, actual = diabetesTst$Diabetes)
+testTab_05 <- table(predicted = testPred_05, actual = diabetesTst$Diabetes)
+
+
+testMatrx_01 <- confusionMatrix(testTab_01, positive = "yes")
+testMatrx_02 <- confusionMatrix(testTab_02, positive = "yes")
+testMatrx_03 <- confusionMatrix(testTab_03, positive = "yes")
+testMatrx_04 <- confusionMatrix(testTab_04, positive = "yes")
+testMatrx_05 <- confusionMatrix(testTab_05, positive = "yes")
+
+
+metrics <- rbind(
+  c(testMatrx_01$overall["Accuracy"],
+    testMatrx_01$byClass["Sensitivity"],
+    testMatrx_01$byClass["Specificity"]),
+
+  c(testMatrx_02$overall["Accuracy"],
+    testMatrx_02$byClass["Sensitivity"],
+    testMatrx_02$byClass["Specificity"]),
+
+  c(testMatrx_03$overall["Accuracy"],
+    testMatrx_03$byClass["Sensitivity"],
+    testMatrx_03$byClass["Specificity"]),
+    
+  c(testMatrx_04$overall["Accuracy"],
+    testMatrx_04$byClass["Sensitivity"],
+    testMatrx_04$byClass["Specificity"]),
+
+  c(testMatrx_05$overall["Accuracy"],
+    testMatrx_05$byClass["Sensitivity"],
+    testMatrx_05$byClass["Specificity"])
+)
+
+rownames(metrics) = c("c = 0.10", "c = 0.33", "c = 0.50", "c = 0.66", "c = 0.90")
+
+metrics_tibble <- as_tibble(metrics, rownames = "Threshold")
+
+kable(metrics_tibble)
+```
 
 | Threshold |  Accuracy | Sensitivity | Specificity |
 |:----------|----------:|------------:|------------:|
@@ -151,45 +186,46 @@ model with a 0.5 cutoff appears to have the most balanced trade-off
 between Accuracy, Specificity, and Sensitivity, exhibiting
 characteristics of a valid classifier.
 
-## Test errors
-
-    ## [1] 0.2516444
-
 ## Comparing test and train errors of the logistic model.
+
+``` r
+calcErr = function(actual, predicted) {
+  mean(actual != predicted)
+}
+
+trainPred_03 = get_logistic_pred(lrgModel, diabetesTrn, res = "Diabetes", 
+pos = "yes", neg = "no", cut = 0.5)
+
+# Predict on the training data
+trainErr_03 = calcErr(actual = diabetesTrn$Diabetes, predicted = trainPred_03)
+
+# Calculate test error (already done in your code)
+testErr_03 = calcErr(actual = diabetesTst$Diabetes, predicted = testPred_03)
+
+# Compare train and test errors
+errorComparison = tibble::tibble(
+  Type = c("Train Error", "Test Error"),
+  Error = c(trainErr_03, testErr_03)
+)
+
+kable(errorComparison)
+```
 
 | Type        |     Error |
 |:------------|----------:|
 | Train Error | 0.2518346 |
 | Test Error  | 0.2516444 |
 
-## Calculating RMSE for the logistic model.
-
-| Type       |      RMSE |
-|:-----------|----------:|
-| Train RMSE | 0.5018312 |
-| Test RMSE  | 0.5016417 |
-
-The error values above are too high for classifying diabetes. Sitting at
-a rate of 0.25, both errors carry harmful consequences, specifically the
-testing set. If 0.25 percent of predictions are incorrect, then
-misdiagnosis will occur and people won’t get the treatment that they
-need. The RMSE values reaffirm this issue at a staggering 0.50 for each.
-This implies that the predicted values are, on average, 0.5 units away
-from the actual values.
-
-With high error and RMSE values, the initial model must be modified such
-that it reflects better accuracy. This will be done by isolating
-significant predictors and plugging them into a boosting model.
-
-    ## Setting levels: control = 0, case = 1
-
-    ## Setting direction: controls < cases
-
-![](Data_Analysis_03_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
-
 ## Significance testing
 
-*Create coefficient plot?*
+``` r
+# Isolate the most significant predictors
+
+modelSum <- summary(lrgModel)
+
+
+kable(modelSum$coefficients)
+```
 
 |                      |   Estimate | Std. Error |     z value | Pr(\>\|z\|) |
 |:---------------------|-----------:|-----------:|------------:|------------:|
@@ -223,56 +259,99 @@ complexity.
 
 ## Data prep
 
-## Using a boosting model to reduce underfitting in the model
+``` r
+# Convert training and test data to matrix format
+
+trainMatrx = model.matrix(Diabetes ~ . + I(BMI^2) + I(GenHlth^2) + Age + HighBP + HighChol +
+                          BMI:Age + HighBP:GenHlth, data = diabetesTrn)
+
+testMatrx = model.matrix(Diabetes ~ . + I(BMI^2) + I(GenHlth^2) + Age + HighBP + HighChol +
+                         BMI:Age + HighBP:GenHlth, data = diabetesTst)
+```
+
+## Creating an Boost Model
+
+``` r
+trainLabel = as.numeric(diabetesTrn$Diabetes == "yes")
+testLabel = as.numeric(diabetesTst$Diabetes == "yes")
+
+parameters <- list(
+  objective = "binary:logistic",
+  eval_metric = "error",
+  max_depth = 6,
+  eta = 0.1,
+  nthread = 2
+)
+
+boostMod <- xgboost(
+  data = trainMatrx,
+  label = trainLabel,
+  params = parameters,
+  nrounds = 100,
+  verbose = 0
+)
+
+# Predict on the test data
+tstPredictions <- predict(boostMod, testMatrx)
+
+# Apply 0.5 cutoff
+tstPredLabels <- ifelse(tstPredictions > 0.5, "yes", "no")
+```
 
 ## Evaluating error from boost model
+
+``` r
+# Create predictions on the train data 
+trnPredictions <- predict(boostMod, trainMatrx)
+
+# Apply 0.5 cutoff
+trnPredLabels <- ifelse(trnPredictions > 0.5, "yes", "no")
+
+trnBoostErr = calcErr(actual = diabetesTrn$Diabetes, predicted = trnPredLabels)
+tstBoostErr = calcErr(actual = diabetesTst$Diabetes, predicted = tstPredLabels)
+
+errorComparison2 = tibble::tibble(
+  Type = c("Train Error", "Test Error"),
+  Error = c(trnBoostErr, tstBoostErr)
+)
+
+kable(errorComparison2)
+```
 
 | Type        |     Error |
 |:------------|----------:|
 | Train Error | 0.2305802 |
 | Test Error  | 0.2467643 |
 
-## Calculate RMSE.
+## Model comparison
 
-| Type       |      RMSE |
-|:-----------|----------:|
-| Train RMSE | 0.3956497 |
-| Test RMSE  | 0.4077824 |
+``` r
+# Create confusion matrix
+boostTab <- table(Predicted = tstPredLabels, Actual = diabetesTst$Diabetes)
+boostMatrx <- confusionMatrix(boostTab, positive = "yes")
+
+boostMetrics <- rbind(
+  c(testMatrx_03$overall["Accuracy"],
+    testMatrx_03$byClass["Sensitivity"],
+    testMatrx_03$byClass["Specificity"]),
+  
+  c(boostMatrx$overall["Accuracy"],
+    boostMatrx$byClass["Sensitivity"],
+    boostMatrx$byClass["Specificity"]))
+
+rownames(boostMetrics) <- c("Logistic", "Boost")
+
+metric_comparison <- as_tibble(boostMetrics, rownames = "Model")
+
+kable(metric_comparison)
+```
 
 | Model    |  Accuracy | Sensitivity | Specificity |
 |:---------|----------:|------------:|------------:|
-| Standard | 0.7483556 |   0.7675806 |   0.7292958 |
+| Logistic | 0.7483556 |   0.7675806 |   0.7292958 |
 | Boost    | 0.7532357 |   0.7931524 |   0.7136620 |
 
-    ## Setting levels: control = 0, case = 1
-
-    ## Setting direction: controls < cases
-
-![](Data_Analysis_03_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
-
-**Continue with this section**
-
-As we can see from the comparison, the boost model delivers better
-results compared to the previous model.
-
-The errors above, in comparison to the previous model, are not too
-different. However, the training error is slightly lower than the
-testing error in the boosting model, suggesting more complexity and
-better accuracy without over-fitting. This figures as the errors are
-close in value, indicating the model’s ability to generalize on the test
-data–that is, predict well on unseen data, not just the data it was
-trained on.
-
-The RMSE values likewise reflect this generalization ability with train
-and test values, respectively, as 0.39 and 0.40. Not only this, but the
-values are an improvement from the previous RMSE values of 0.50 each.
-Furthermore, the improved generalization is evident in the confusion
-matrix above, with both accuracy and sensitivity rising.
-
 ## Evaluate
-
-**Hammer in the importance of RMSE and why it should be lowered. Ignore
-the errors. Add in ROC curve for both models?**
 
 Two models were used to classify Diabetes, a logistic and xgboost model.
 For the logistic method, models with multiple cutoffs were used to
@@ -285,31 +364,40 @@ negatives sitting at 76 and 72 percent, respectively. To ensure that
 these metrics were not the result of under or over-fitting, the test and
 train error were compared. With both values sitting around 0.25, there
 was little reason to suspect a poor fit model, as such a case would
-involve a large gap between the errors. The same can be said about the
-train and test RMSE, which both sat around 0.5. Here, however, it was
-apparent that the RMSE values were too high. The predicted values were,
-on average, 0.5 units away from the actual values, which is significant
-when the range of predicted probabilities is 0 and 1. Thus, it was
-important to address this issue by reducing the residuals in the model.
+involve a large gap between the errors.
 
-This can be done through a gradient boost model using xgboost. In this
-model, “weak learners”, or stumps from a decision tree, are aggregated
-in an ensemble model. The residuals from this model are then scaled by a
-learning rate and fitted to a new model, sequentially reducing error.
-This ensures error is reduced without over-fitting. The effects of the
-xgboost model are evident in the RMSE values, with the train and test
-RMSE, respectively, sitting at 0.39 and 0.40, down from 0.50 in the
-logistic model. Additionally, train and test errors sit at 0.23 and
-0.24, respectively, slightly lower than 0.25. This improvement in
-accuracy is reaffirmed by the comparison in performance metrics, with
-the boost model leading in all but one category.
+A gradient boost model using xgboost was used. In this model, “weak
+learners”, or stumps from a decision tree, are aggregated in an ensemble
+model. The residuals from this model are then scaled by a learning rate
+and fitted to a new model. This ensures error is reduced without
+over-fitting. The effects of the xgboost model are evident in the RMSE
+values, with the train and test, respectively, sitting at 0.39 and 0.40,
+down from 0.50 in the logistic model. Additionally, the errors are down
+from 0.25, with the train and test sitting at 0.23 and 0.24,
+respectively. This improvement in accuracy is reaffirmed by the
+performance metrics, with the boost model leading in accuracy and
+sensitivity.
 
 ## Conclusion
 
-The plan above is to isolate the most significant predictors in the
-initial model by measuring their p-values. The predictors with the
-lowest p-values (i.e., p-value \<0.05) are added to matrices for the
-boosting model. This ensures that the most significant predictors are
-used, and the test error in the boosting model is lowered from its
-initial value. After, we want to ensure that over-fitting is not present
-by calculating the RMSE for the boosting model.
+Both models above were able to predict Diabetes with acceptable
+accuracy. However, the logistic model contained RMSE values
+
+The boost model was able to do this without over-fitting, as the train
+and test RMSE’s were close together. This improvement in accuracy was
+partially due to feature selection, where the most significant
+predictors in the logistic model were isolated for use in the boost
+model.
+
+The resulting accuracy was an improvement from the logistic model, as
+was sensitivity. The caveat was that accuracy came at the expense of
+specificity, or the model’s ability to capture true negatives. In the
+context of detecting Diabetes, however, the consequences of a false
+positive (specificity) carry less weight than a false negative
+(sensitivity), in which case a diabetic would be incorrectly labeled as
+non-diabetic. As such, specificity is less of a concern, as the
+importance lies in the model’s ability to detect Diabetics, not
+non-diabetics.
+
+With an improvement in accuracy, our boost model is able to predict the
+instance of Diabetes with 75 percent accuracy. With
