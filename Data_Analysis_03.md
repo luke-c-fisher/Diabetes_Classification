@@ -1,7 +1,7 @@
 Classifying Diabetes
 ================
 Luke Fisher
-01 April, 2025
+03 April, 2025
 
 ## Introduction
 
@@ -28,24 +28,41 @@ responses from the 2015 BRFSS survey, each related to risk factors like
 smoking, high cholesterol, and physical activity. Furthermore, the data
 contains an equal 50-50 split of respondents with and without diabetes.
 
-The data is binary, meaning that the predictors take on a value one or
-zero depending on whether the condition is true or not. For instance, if
-a respondent has a smoking habit they will be marked with a 1 for the
-smoking column; otherwise, they will receive a 0. There are some
-exceptions to this like BMI and age, where the values are continuous.
+The data is binary, meaning that the predictors take on a value 1 or 0
+depending on whether a condition is present. For instance, if a
+respondent has a smoking habit they will be assigned a 1 for the smoking
+column; otherwise, they will receive a 0. There are some exceptions to
+this like BMI and age, where the values are continuous. For our purpose,
+we will cross-validate the data set.
 
 ## Methodology
 
-The classification will be done by binary logistic regression. As such,
-the response variable, Diabetes, will take on two values, “yes” or “no”,
-corresponding to whether the patient has the disease. The classification
-will start with a series of logistic models, each with a unique cutoff.
-The function will label, respectively, “yes” and “no” for instances of
-Diabetes above or below a given cutoff. Afterwards, these predicted
-values will be compared with the actual values in a table and put into a
-confusion matrix for evaluation. The goal is to isolate and optimize one
-model for classification. As such, modifications to this model will be
-taken if the it exhibits unacceptable metrics.
+Two classifiers will be built and evaluated using logistic regression
+and gradient boost to compare their effectiveness in predicting diabetes
+and select the better model. Both classifiers will predict Diabetes as a
+binary response variable. The first classifier will start with a
+logistic model and a function to extract logistic predictions. This
+function will predict on the logistic model to create labels at multiple
+cutoffs, taking on the values, respectively, “yes” and “no” for
+instances of Diabetes above or below a given cutoff. Afterwards, these
+predicted labels will be compared with the actual values from the data
+set in a table and put into a confusion matrix for evaluation. The goal
+is to isolate and optimize one model for classification. Once
+identified, this model will be further evaluated in its prediction
+ability with metrics like Accuracy, Sensitivity, Specificity, and
+ROC-AUC. Additionally, its train and test errors will be included to
+identify possible under or over-fitting.
+
+The second classifier will use a gradient boost model, xgboost, to
+predict Diabetes. This model will start with two matrices–one each for
+the train and test sets–containing the same regression formula as the
+logistic model. Parameters will then be set up to specify conditions for
+the boost model, such as learning rate and objective. In this case, the
+objective of the boost model is to optimize for binary classification
+through logistic regression. The boost model will be trained on these
+parameters and predicted on the test matrix. It will be applied to a 0.5
+cutoff and evaluated by the same classification metrics as the logistic
+model, including train and test error.
 
 ``` r
 library(dplyr)
@@ -107,7 +124,6 @@ get_logistic_pred = function(mod, data, res = "y", pos = 1, neg = 0, cut = 0.5) 
   probs = predict(mod, newdata = data, type = "response")
   ifelse(probs > cut, pos, neg)
 }
-
 
 # Creating separate predictions based on different cutoffs
 
@@ -216,60 +232,24 @@ kable(errorComparison)
 | Train Error | 0.2518346 |
 | Test Error  | 0.2516444 |
 
-## Significance testing
+## Evaluate ROC-AUC for logistic model
 
 ``` r
-# Isolate the most significant predictors
-
-modelSum <- summary(lrgModel)
-
-
-kable(modelSum$coefficients)
+test_prob_log = predict(lrgModel, newdata = diabetesTst, type = "response")
+test_roc_log = roc(diabetesTst$Diabetes ~ test_prob_log, plot = TRUE, print.auc = TRUE)
 ```
 
-|                      |   Estimate | Std. Error |     z value | Pr(\>\|z\|) |
-|:---------------------|-----------:|-----------:|------------:|------------:|
-| (Intercept)          | -6.8482299 |  0.1389907 | -49.2711376 |   0.0000000 |
-| HighBP               |  0.7420328 |  0.0220466 |  33.6575227 |   0.0000000 |
-| HighChol             |  0.5838587 |  0.0210585 |  27.7256017 |   0.0000000 |
-| CholCheck            |  1.3477969 |  0.0912931 |  14.7633983 |   0.0000000 |
-| BMI                  |  0.0754391 |  0.0017637 |  42.7740408 |   0.0000000 |
-| Smoker               |  0.0038118 |  0.0210863 |   0.1807712 |   0.8565472 |
-| Stroke               |  0.1933263 |  0.0458602 |   4.2155562 |   0.0000249 |
-| HeartDiseaseorAttack |  0.2513817 |  0.0316545 |   7.9414212 |   0.0000000 |
-| PhysActivity         | -0.0243045 |  0.0238038 |  -1.0210322 |   0.3072392 |
-| Fruits               | -0.0577295 |  0.0218803 |  -2.6384265 |   0.0083292 |
-| Veggies              | -0.0445863 |  0.0260545 |  -1.7112709 |   0.0870311 |
-| HvyAlcoholConsump    | -0.7332077 |  0.0539896 | -13.5805303 |   0.0000000 |
-| AnyHealthcare        |  0.0381443 |  0.0527735 |   0.7227938 |   0.4698066 |
-| NoDocbcCost          |  0.0304985 |  0.0380442 |   0.8016583 |   0.4227507 |
-| GenHlth              |  0.5796055 |  0.0127947 |  45.3004758 |   0.0000000 |
-| MentHlth             | -0.0040392 |  0.0014334 |  -2.8179099 |   0.0048337 |
-| PhysHlth             | -0.0083631 |  0.0013315 |  -6.2809966 |   0.0000000 |
-| DiffWalk             |  0.1250893 |  0.0289458 |   4.3215062 |   0.0000155 |
-| Sex                  |  0.2632854 |  0.0214026 |  12.3015753 |   0.0000000 |
-| Age                  |  0.1506930 |  0.0043579 |  34.5795388 |   0.0000000 |
-| Education            | -0.0293567 |  0.0114374 |  -2.5667216 |   0.0102665 |
-| Income               | -0.0586832 |  0.0058000 | -10.1178662 |   0.0000000 |
+![](Data_Analysis_03_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
 
-We can deduce `BMI`, `GenHlth`, `Age`, `HighBP`, and `HighChol` as the
-most significant predictors in the initial model. As such, we will add
-these predictors to the initial model, `lrgModel`, along with more
-complexity.
-
-## Data prep
+## Creating a Boost Model
 
 ``` r
 # Convert training and test data to matrix format
+# Apply the same amount of complexity in the boost model as the logistic model
 
-trainMatrx = model.matrix(Diabetes ~ . + I(BMI^2) + I(GenHlth^2) + Age + HighBP + HighChol +
-                          BMI:Age + HighBP:GenHlth, data = diabetesTrn)
-
-testMatrx = model.matrix(Diabetes ~ . + I(BMI^2) + I(GenHlth^2) + Age + HighBP + HighChol +
-                         BMI:Age + HighBP:GenHlth, data = diabetesTst)
+trainMatrx = model.matrix(Diabetes ~ ., data = diabetesTrn)
+testMatrx = model.matrix(Diabetes ~ ., data = diabetesTst)
 ```
-
-## Creating an Boost Model
 
 ``` r
 trainLabel = as.numeric(diabetesTrn$Diabetes == "yes")
@@ -320,8 +300,8 @@ kable(errorComparison2)
 
 | Type        |     Error |
 |:------------|----------:|
-| Train Error | 0.2305802 |
-| Test Error  | 0.2467643 |
+| Train Error | 0.2314820 |
+| Test Error  | 0.2486032 |
 
 ## Model comparison
 
@@ -349,7 +329,17 @@ kable(metric_comparison)
 | Model    |  Accuracy | Sensitivity | Specificity |
 |:---------|----------:|------------:|------------:|
 | Logistic | 0.7483556 |   0.7675806 |   0.7292958 |
-| Boost    | 0.7532357 |   0.7931524 |   0.7136620 |
+| Boost    | 0.7513968 |   0.7978406 |   0.7053521 |
+
+``` r
+test_prob_boost = predict(boostMod, newdata = testMatrx, type = "response")
+test_roc_boost = roc(diabetesTst$Diabetes ~ test_prob_boost, plot = TRUE, print.auc = TRUE)
+```
+
+![](Data_Analysis_03_files/figure-gfm/unnamed-chunk-12-1.png)<!-- -->
+
+**Compare the two models above and decide which one is better for the
+data**
 
 ## Evaluate
 
@@ -366,38 +356,17 @@ train error were compared. With both values sitting around 0.25, there
 was little reason to suspect a poor fit model, as such a case would
 involve a large gap between the errors.
 
-A gradient boost model using xgboost was used. In this model, “weak
-learners”, or stumps from a decision tree, are aggregated in an ensemble
-model. The residuals from this model are then scaled by a learning rate
-and fitted to a new model. This ensures error is reduced without
-over-fitting. The effects of the xgboost model are evident in the RMSE
-values, with the train and test, respectively, sitting at 0.39 and 0.40,
-down from 0.50 in the logistic model. Additionally, the errors are down
-from 0.25, with the train and test sitting at 0.23 and 0.24,
+A gradient boost model was used through `xgboost`. In this model, “weak
+learners”, or stumps from a decision tree, are aggregated into an
+ensemble model. The residuals from this model are then scaled by a
+learning rate and fitted to a new model. This ensures error is reduced
+without over-fitting. The effects of the `xgboost` model are evident in
+the errors, with the train and test sitting at 0.23 and 0.24,
 respectively. This improvement in accuracy is reaffirmed by the
 performance metrics, with the boost model leading in accuracy and
-sensitivity.
+sensitivity. The model differs in specificity, sitting at 2 percent less
+than the logistic model. This isn’t a large concern, however, as false
+positives captured under specificity do not carry the same consequences
+as false negatives.
 
 ## Conclusion
-
-Both models above were able to predict Diabetes with acceptable
-accuracy. However, the logistic model contained RMSE values
-
-The boost model was able to do this without over-fitting, as the train
-and test RMSE’s were close together. This improvement in accuracy was
-partially due to feature selection, where the most significant
-predictors in the logistic model were isolated for use in the boost
-model.
-
-The resulting accuracy was an improvement from the logistic model, as
-was sensitivity. The caveat was that accuracy came at the expense of
-specificity, or the model’s ability to capture true negatives. In the
-context of detecting Diabetes, however, the consequences of a false
-positive (specificity) carry less weight than a false negative
-(sensitivity), in which case a diabetic would be incorrectly labeled as
-non-diabetic. As such, specificity is less of a concern, as the
-importance lies in the model’s ability to detect Diabetics, not
-non-diabetics.
-
-With an improvement in accuracy, our boost model is able to predict the
-instance of Diabetes with 75 percent accuracy. With
