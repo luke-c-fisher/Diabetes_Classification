@@ -1,7 +1,7 @@
 Classifying Diabetes
 ================
 Luke Fisher
-03 April, 2025
+06 April, 2025
 
 ## Introduction
 
@@ -38,22 +38,22 @@ we will cross-validate the data set.
 ## Methodology
 
 Two classifiers will be built and evaluated using logistic regression
-and gradient boost to compare their effectiveness in predicting diabetes
-and select the better model. Both classifiers will predict Diabetes as a
-binary response variable. The first classifier will start with a
-logistic model and a function to extract logistic predictions. This
-function will predict on the logistic model to create labels at multiple
-cutoffs, taking on the values, respectively, “yes” and “no” for
-instances of Diabetes above or below a given cutoff. Afterwards, these
-predicted labels will be compared with the actual values from the data
-set in a table and put into a confusion matrix for evaluation. The goal
-is to isolate and optimize one model for classification. Once
-identified, this model will be further evaluated in its prediction
-ability with metrics like Accuracy, Sensitivity, Specificity, and
-ROC-AUC. Additionally, its train and test errors will be included to
-identify possible under or over-fitting.
+and gradient boost. The purpose is to measure their effectiveness in
+predicting diabetes and select the better model. Both classifiers will
+predict Diabetes as a binary response variable. The first classifier
+will start with a logistic model and a function to extract logistic
+predictions. This function will predict on the logistic model to create
+labels at multiple cutoffs, taking on the values, respectively, “yes”
+and “no” for instances of Diabetes above or below a given cutoff.
+Afterwards, these predicted labels will be compared with the actual
+values from the data set in a table and put into a confusion matrix for
+evaluation. The goal is to isolate and optimize one model for
+classification. Once identified, this model will be further evaluated in
+its predictive ability with metrics like Accuracy, Sensitivity,
+Specificity, and ROC-AUC. Additionally, its train and test errors will
+be included to identify possible under or over-fitting.
 
-The second classifier will use a gradient boost model, xgboost, to
+The second classifier will use a gradient boost model, `xgboost`, to
 predict Diabetes. This model will start with two matrices–one each for
 the train and test sets–containing the same regression formula as the
 logistic model. Parameters will then be set up to specify conditions for
@@ -62,7 +62,9 @@ objective of the boost model is to optimize for binary classification
 through logistic regression. The boost model will be trained on these
 parameters and predicted on the test matrix. It will be applied to a 0.5
 cutoff and evaluated by the same classification metrics as the logistic
-model, including train and test error.
+model, including train and test error. The metrics from the two models
+will then be evaluated to select the model with the better predictive
+ability.
 
 ``` r
 library(dplyr)
@@ -117,7 +119,7 @@ kable(dataHead)
 | 11078 | no       |      0 |        0 |         0 |  22 |      0 |      0 |                    0 |            1 |      1 |       1 |                 0 |             0 |           1 |       1 |        0 |        0 |        0 |   1 |   6 |         4 |      3 |
 | 38966 | yes      |      1 |        0 |         1 |  44 |      0 |      0 |                    0 |            1 |      1 |       1 |                 0 |             1 |           0 |       3 |        2 |        1 |        1 |   0 |   8 |         3 |      3 |
 
-## Building classifiers
+## Creating logistic models
 
 ``` r
 get_logistic_pred = function(mod, data, res = "y", pos = 1, neg = 0, cut = 0.5) {
@@ -276,7 +278,26 @@ tstPredictions <- predict(boostMod, testMatrx)
 
 # Apply 0.5 cutoff
 tstPredLabels <- ifelse(tstPredictions > 0.5, "yes", "no")
+
+boostTab <- table(Predicted = tstPredLabels, Actual = diabetesTst$Diabetes)
+boostMatrx <- confusionMatrix(boostTab, positive = "yes")
+
+boost_metrics <-
+  c(boostMatrx$overall["Accuracy"],
+    boostMatrx$byClass["Sensitivity"],
+    boostMatrx$byClass["Specificity"])
+
+
+boost_metrics_tibble <- as_tibble(boost_metrics, rownames = "Metric")
+
+kable(boost_metrics_tibble)
 ```
+
+| Metric      |     value |
+|:------------|----------:|
+| Accuracy    | 0.7513968 |
+| Sensitivity | 0.7978406 |
+| Specificity | 0.7053521 |
 
 ## Evaluating error from boost model
 
@@ -303,14 +324,16 @@ kable(errorComparison2)
 | Train Error | 0.2314820 |
 | Test Error  | 0.2486032 |
 
-## Model comparison
+``` r
+test_prob_boost = predict(boostMod, newdata = testMatrx, type = "response")
+test_roc_boost = roc(diabetesTst$Diabetes ~ test_prob_boost, plot = TRUE, print.auc = TRUE)
+```
+
+![](Data_Analysis_03_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
+\## Model comparison
 
 ``` r
-# Create confusion matrix
-boostTab <- table(Predicted = tstPredLabels, Actual = diabetesTst$Diabetes)
-boostMatrx <- confusionMatrix(boostTab, positive = "yes")
-
-boostMetrics <- rbind(
+metrics <- rbind(
   c(testMatrx_03$overall["Accuracy"],
     testMatrx_03$byClass["Sensitivity"],
     testMatrx_03$byClass["Specificity"]),
@@ -319,9 +342,9 @@ boostMetrics <- rbind(
     boostMatrx$byClass["Sensitivity"],
     boostMatrx$byClass["Specificity"]))
 
-rownames(boostMetrics) <- c("Logistic", "Boost")
+rownames(metrics) <- c("Logistic", "Boost")
 
-metric_comparison <- as_tibble(boostMetrics, rownames = "Model")
+metric_comparison <- as_tibble(metrics, rownames = "Model")
 
 kable(metric_comparison)
 ```
@@ -331,42 +354,71 @@ kable(metric_comparison)
 | Logistic | 0.7483556 |   0.7675806 |   0.7292958 |
 | Boost    | 0.7513968 |   0.7978406 |   0.7053521 |
 
-``` r
-test_prob_boost = predict(boostMod, newdata = testMatrx, type = "response")
-test_roc_boost = roc(diabetesTst$Diabetes ~ test_prob_boost, plot = TRUE, print.auc = TRUE)
-```
-
-![](Data_Analysis_03_files/figure-gfm/unnamed-chunk-12-1.png)<!-- -->
-
-**Compare the two models above and decide which one is better for the
-data**
-
 ## Evaluate
 
-Two models were used to classify Diabetes, a logistic and xgboost model.
-For the logistic method, models with multiple cutoffs were used to
-identify the most accurate one, with the 0.5 cutoff yielding the best
-results. The model exhibited the most balanced trade off between
-Accuracy, Sensitivity, and Specificity, with the values, respectively,
-of 0.74, 0.76, 0.72. This indicated that the model was able to identify
-instances of diabetes with 74 percent Accuracy, with true positives and
-negatives sitting at 76 and 72 percent, respectively. To ensure that
-these metrics were not the result of under or over-fitting, the test and
-train error were compared. With both values sitting around 0.25, there
-was little reason to suspect a poor fit model, as such a case would
-involve a large gap between the errors.
+Two methods were used to classify Diabetes, logistic regression and
+gradient boost. For the logistic method, models with multiple cutoffs
+were used to identify the most accurate one, with the 0.5 cutoff
+yielding the best results. The model exhibited the best trade off
+between Accuracy, Sensitivity, and Specificity, with the values,
+respectively, of 0.74, 0.76, 0.72. The model was able to identify
+instances of diabetes with 74 percent Accuracy, with the true positive
+and negative rates sitting at 76 and 72 percent, respectively. To ensure
+that these metrics were not the result of under or over-fitting, the
+test and train error were compared. With both values sitting around
+0.25, there was little reason to suspect a poor fit model since the
+errors were close in value. That is to say that the model is able to
+generalize well on unseen data. The AUC value of 0.828 suggests that the
+logistic model performs well at discriminating between positive and
+negative cases. That is, the model has an 82.8% chance of correctly
+ranking a positive case higher than a negative one.
 
-A gradient boost model was used through `xgboost`. In this model, “weak
+A gradient boost model was created using `xgboost`. In this model, “weak
 learners”, or stumps from a decision tree, are aggregated into an
 ensemble model. The residuals from this model are then scaled by a
 learning rate and fitted to a new model. This ensures error is reduced
 without over-fitting. The effects of the `xgboost` model are evident in
 the errors, with the train and test sitting at 0.23 and 0.24,
 respectively. This improvement in accuracy is reaffirmed by the
-performance metrics, with the boost model leading in accuracy and
-sensitivity. The model differs in specificity, sitting at 2 percent less
-than the logistic model. This isn’t a large concern, however, as false
-positives captured under specificity do not carry the same consequences
-as false negatives.
+performance metrics, with the boost model leading its logistic
+counterpart in accuracy and sensitivity, but shrinking 2 percent in
+specificity. In this case, we will not weigh specificity as heavily
+since our main concern is in detecting positive cases of diabetes. With
+that said, the boost model’s AUC of 0.832 is a slight improvement from
+its predecessor, indicating that it is able to distinguish between
+positive and negative cases more efficiently.
 
 ## Conclusion
+
+The two models above predict diabetes at an acceptable level. Both
+deliver solid performance metrics, with AUCs above 0.8, and both are
+able to generalize well on unseen data. This is true in that the train
+and test errors for both models are close in value. However, if one
+model were to be selected for classifying diabetes, we would select the
+gradient boost model.
+
+The boost model led its logistic counterpart in every classification
+metric, and although it falters in specificity, this metric is not as
+important in this context. This is because the consequences of being
+wrongly diagnosed as diabetic is far less severe than being wrongly
+undiagnosed–in which case, a patient could experience diabetic
+ketoacidosis (DKA). This is not to say that an incorrect diagnosis is a
+non-issue, but for the sake of correctly identifying diabetes, a slight
+drop in specificity is not detrimental. With that said, the boost model
+is sufficient at predicting instances of diabetes at 75 percent
+accuracy. Moreover, the model’s ability to detect 79 percent of true
+cases is significant for the reasons laid out above. As such, we can
+conclude that the boost model is a superior option for predicting
+diabetes.
+
+## Work Cited
+
+Heiser, Tom. “Prediabetes? Type 1 or Type 2 Diabetes? Making Sense of
+These Diagnoses.” Norton Healthcare, 18 Feb. 2025,
+nortonhealthcare.com/news/prediabetes-misdiagnosis/#:~:text=One%20major%20risk%20of%20this,creating%20harmful%20acids%20called%20ketones.
+
+Kirkpatrick, Justin. “12: Applied Logistic Regression - Classification.”
+EC242, ec242.netlify.app/assignment/12-assignment. Accessed 7 Jan. 2025.
+
+Teboul, Alex. “Diabetes Health Indicators Dataset.” Kaggle, 8 Nov. 2021,
+www.kaggle.com/datasets/alexteboul/diabetes-health-indicators-dataset.

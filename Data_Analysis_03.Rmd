@@ -289,6 +289,14 @@ The two models above predict diabetes at an acceptable level. Both deliver solid
 The boost model led its logistic counterpart in every classification metric, and although it falters in specificity, this metric is not as important in this context. This is because the consequences of being wrongly diagnosed as diabetic is far less severe than being wrongly undiagnosed--in which case, a patient could experience diabetic ketoacidosis (DKA). This is not to say that an incorrect diagnosis is a non-issue, but for the sake of correctly identifying diabetes, a slight drop in specificity is not detrimental. With that said, the boost model is sufficient at predicting instances of diabetes at 75 percent accuracy. Moreover, the model's ability to detect 79 percent of true cases is significant for the reasons laid out above. As such, we can conclude that the boost model is a superior option for predicting diabetes. 
 
 
+## Work Cited
+
+Heiser, Tom. “Prediabetes? Type 1 or Type 2 Diabetes? Making Sense of These Diagnoses.” Norton Healthcare, 18 Feb. 2025, nortonhealthcare.com/news/prediabetes-misdiagnosis/#:~:text=One%20major%20risk%20of%20this,creating%20harmful%20acids%20called%20ketones. 
+
+Kirkpatrick, Justin. “12: Applied Logistic Regression - Classification.” EC242, ec242.netlify.app/assignment/12-assignment. Accessed 7 Jan. 2025.
+
+Teboul, Alex. “Diabetes Health Indicators Dataset.” Kaggle, 8 Nov. 2021, www.kaggle.com/datasets/alexteboul/diabetes-health-indicators-dataset.  
+
 
 
 
